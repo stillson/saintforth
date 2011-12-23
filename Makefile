@@ -3,7 +3,7 @@
 #BUILD_ID_NONE := -Wl,--build-id=none 
 BUILD_ID_NONE := 
 
-SHELL	:= /usr/local/bin/bash
+SHELL	:= /bin/sh
 CC      = /Developer/usr/bin/gcc -I/Developer/SDKs/MacOSX10.7.sdk/usr/include
 
 all:	jonesforth

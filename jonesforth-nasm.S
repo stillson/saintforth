@@ -1,16 +1,18 @@
 %if 0
++comment
 	A sometimes minimal FORTH compiler and tutorial for Linux / i386 systems. -*- asm -*-
 	By Richard W.M. Jones <rich@annexia.org> http://annexia.org/forth
 	This is PUBLIC DOMAIN (see public domain release statement below).
 	$Id: jonesforth.S,v 1.47 2009-09-11 08:33:13 rich Exp $
 
 	gcc -m32 -nostdlib -static -Wl,-Ttext,0 -Wl,--build-id=none -o jonesforth jonesforth.S
-
+-comment
 %endif
 
 %define JONES_VERSION 47
 %define STF_VERSION   1
 %if 0
++comment
 	INTRODUCTION ----------------------------------------------------------------------
 
 	FORTH is one of those alien languages which most working programmers regard in the same
@@ -304,6 +306,7 @@
 	which literally make the jump to the next subroutine.
 
 	And that brings us to our first piece of actual code!  Well, it's a macro.
+-comment
 %endif
 
 ;; NEXT macro.
@@ -313,6 +316,7 @@
 %endmacro
 
 %if 0
++comment
 	The macro is called NEXT.  That's a FORTH-ism.  It expands to those two instructions.
 
 	Every FORTH primitive that we write has to be ended by NEXT.  Think of it kind of like
@@ -474,6 +478,7 @@
 	You use them as for example "PUSHRSP %eax" (push %eax on the return stack) or "POPRSP %ebx"
 	(pop top of return stack into %ebx).
 */
+-comment
 %endif
 
 ;; Macros to deal with the return stack.
@@ -491,6 +496,7 @@
 %endmacro
 
 %if 0
++comment
 	And with that we can now talk about the interpreter.
 
 	In FORTH the interpreter function is often called DOCOL (I think it means "DO COLON" because
@@ -502,6 +508,7 @@
 	the address of this codeword, so just by adding 4 to it we get the address of the first
 	data word.  Finally after setting up %esi, it just does NEXT which causes that first word
 	to run.
+-comment
 %endif
 
 ;; DOCOL - the interpreter! */
@@ -515,6 +522,7 @@ DOCOL:
 	NEXT
 
 %if 0
++comment
 	Just to make this absolutely clear, let's see how DOCOL works when jumping from QUADRUPLE
 	into DOUBLE:
 
@@ -568,6 +576,7 @@ stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
 	anything.  It resets some internal state and starts reading and interpreting commands.
 	(The reason it is called QUIT is because you can call QUIT from your own FORTH code
 	to "quit" your program and go back to interpreting).
+-comment
 %endif
 
 ;; Assembler entry point.
@@ -576,7 +585,7 @@ stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
 _start:
 	cld
 	mov [var_SZ],esp          ;; Save the initial data stack pointer in FORTH variable S0.
-	mov ebp, [return_stack_top] ;; Initialise the return stack.
+	mov ebp, return_stack_top ;; Initialise the return stack.
 	call set_up_data_segment
 
 	mov esi,[cold_start]	;; Initialise interpreter.
@@ -588,6 +597,7 @@ _start:
 ;;	QUIT
 
 %if 0
++comment
 	BUILT-IN WORDS ----------------------------------------------------------------------
 
 	Remember our dictionary entries (headers)?  Let's bring those together with the codeword
@@ -629,6 +639,7 @@ DOUBLE: .int DOCOL		// codeword
 	and I'll get exactly the same effect.
 
 	Don't worry too much about the exact implementation details of this macro - it's complicated!
+-comment
 %endif
 
 ;; Flags - these are discussed later.
@@ -661,6 +672,7 @@ name_%3 :
 %endmacro
 
 %if 0
++comment
 	Similarly I want a way to write words written in assembly language.  There will quite a few
 	of these to start with because, well, everything has to start in assembly before there's
 	enough "infrastructure" to be able to start writing FORTH words, but also I want to define
@@ -680,6 +692,7 @@ name_%3 :
 
 	Again, for brevity in writing the header I'm going to write an assembler macro called defcode.
 	As with defword above, don't worry about the complicated details of the macro.
+-comment
 %endif
 
 	;; .macro defcode name, namelen, flags=0, label
@@ -707,9 +720,11 @@ code_%3 :			;; assembler code follows
 %endmacro
 
 %if 0
++comment
 	Now some easy FORTH primitives.  These are written in assembly for speed.  If you understand
 	i386 assembly language then it is worth reading these.  However if you don't understand assembly
 	you can skip the details.
+-comment
 %endif
 
 	defcode "DROP",4,DROP
@@ -816,9 +831,11 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	In this FORTH, only /MOD is primitive.  Later we will define the / and MOD words in
 	terms of the primitive /MOD.  The design of the i386 assembly instruction idiv which
 	leaves both quotient and remainder makes this the obvious choice.
+-comment
 %endif
 	defcode "/MOD",4,DIVMOD
 	xor edx, edx
@@ -830,12 +847,14 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	Lots of comparison operations like =, <, >, etc..
 
 	ANS FORTH says that the comparison words should return all (binary) 1's for
 	TRUE and all 0's for FALSE.  However this is a bit of a strange convention
 	so this FORTH breaks it and returns the more normal (for C programmers ...)
 	1 meaning TRUE and 0 meaning FALSE.
+-comment
 %endif
 	defcode "=",1,EQU	;; top two words are equal?
 	pop eax
@@ -959,6 +978,7 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	RETURNING FROM FORTH WORDS ----------------------------------------------------------------------
 
 	Time to talk about what happens when we EXIT a function.  In this diagram QUADRUPLE has called
@@ -979,6 +999,7 @@ qdup_jump:
 						   +------------------+
 
 	What happens when the + function does NEXT?  Well, the following code is executed.
+-comment
 %endif
 
 	defcode "EXIT",4,EXITX
@@ -986,6 +1007,7 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	EXIT gets the old %esi which we saved from before on the return stack, and puts it in %esi.
 	So after this (but just before NEXT) we get:
 
@@ -1029,6 +1051,7 @@ qdup_jump:
 	What's neat is that the whole grab/manipulate can be done using a single byte single
 	i386 instruction, our old friend LODSL.  Rather than me drawing more ASCII-art diagrams,
 	see if you can find out how LIT works:
+-comment
 %endif
 
 	defcode "LIT",3,LIT
@@ -1040,11 +1063,13 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	MEMORY ----------------------------------------------------------------------
 
 	As important point about FORTH is that it gives you direct access to the lowest levels
 	of the machine.  Manipulating memory directly is done frequently in FORTH, and these are
 	the primitive words for doing it.
+-comment
 %endif
 	defcode "!",1,STORE
 	pop ebx		;; address to store at
@@ -1071,10 +1096,12 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	! and @ (STORE and FETCH) store 32-bit words.  It's also useful to be able to read and write bytes
 	so we also define standard words C@ and C!.
 
 	Byte-oriented operations only work on architectures which permit them (i386 is one of those).
+-comment
 %endif
 
 	defcode "C!",2,STOREBYTE
@@ -1111,6 +1138,7 @@ qdup_jump:
 	NEXT
 
 %if 0
++comment
 	BUILT-IN VARIABLES ----------------------------------------------------------------------
 
 	These are some built-in variables and related standard FORTH words.  Of these, the only one that we
@@ -1123,6 +1151,7 @@ qdup_jump:
 
 	To make defining variables shorter, I'm using a macro called defvar, similar to defword and
 	defcode above.  (In fact the defvar macro uses defcode to do the dictionary header).
+-comment
 %endif
 
 	;;.macro defvar name, namelen, flags=0, label, initial=0
@@ -1142,6 +1171,7 @@ var_%3 :
 %endmacro
 
 %if 0
++comment
 	The built-in variables are:
 
 	STATE		Is the interpreter executing code (0) or compiling a word (non-zero)?
@@ -1150,6 +1180,7 @@ var_%3 :
 	S0		Stores the address of the top of the parameter stack.
 	BASE		The current base for printing and reading numbers.
 
+-comment
 %endif
 	defvar "STATE",5,STATE
 	defvar "HERE",4,HERE
@@ -1158,6 +1189,7 @@ var_%3 :
 	defvar "BASE",4,BASE,10
 
 %if 0
++comment
 	BUILT-IN CONSTANTS ----------------------------------------------------------------------
 
 	It's also useful to expose a few constants to FORTH.  When the word is executed it pushes a
@@ -1173,6 +1205,7 @@ var_%3 :
 	F_LENMASK	The length mask in the flags/len byte.
 
 	SYS_*		and the numeric codes of various Linux syscalls (from <asm/unistd.h>)
+-comment
 %endif
 
 ;;#include <asm-i386/unistd.h>	;; you might need this instead
@@ -1217,10 +1250,12 @@ var_%3 :
 	defconst "O_NONBLOCK",10,__O_NONBLOCK,04000
 
 %if 0
++comment
 	RETURN STACK ----------------------------------------------------------------------
 
 	These words allow you to access the return stack.  Recall that the register %ebp always points to
 	the top of the return stack.
+-comment
 %endif
 
 	defcode ">R",2,TOR
@@ -1246,10 +1281,12 @@ var_%3 :
 	NEXT
 
 %if 0
++comment
 	PARAMETER (DATA) STACK ----------------------------------------------------------------------
 
 	These functions allow you to manipulate the parameter stack.  Recall that Linux sets up the parameter
 	stack for us, and it is accessed through %esp.
+-comment
 %endif
 
 	defcode "DSP@",4,DSPFETCH
@@ -1262,6 +1299,7 @@ var_%3 :
 	NEXT
 
 %if 0
++comment
 	INPUT AND OUTPUT ----------------------------------------------------------------------
 
 	These are our first really meaty/complicated FORTH primitives.  I have chosen to write them in
@@ -1297,6 +1335,7 @@ var_%3 :
 		       currkey (next character to read)
 
 	<---------------------- BUFFER_SIZE (4096 bytes) ---------------------->
+-comment
 %endif
 	%define BUFFER_SIZE 4096
 
@@ -1340,9 +1379,11 @@ bufftop:
         dd 0			;; Last valid data in input buffer + 1.
 
 %if 0
++comment
 	By contrast, output is much simpler.  The FORTH word EMIT writes out a single byte to stdout.
 	This implementation just uses the write system call.  No attempt is made to buffer output, but
 	it would be a good exercise to add it.
+-comment
 %endif
 
 	defcode "EMIT",4,EMIT
@@ -1366,6 +1407,7 @@ _EMIT:
 emit_scratch:   db 0,0 ;; scratch used by EMIT
 
 %if 0
++comment
 	Back to input, WORD is a FORTH word which reads the next full word of input.
 
 	What it does in detail is that it first skips any blanks (spaces, tabs, newlines and so on).
@@ -1392,6 +1434,7 @@ emit_scratch:   db 0,0 ;; scratch used by EMIT
 	: BAR WORD FOO ;
 	is an error (or at least it doesn't do what you might expect).  Later we'll talk about compiling
 	and immediate mode, and you'll understand why.
+-comment
 %endif
 
 	defcode "WORD",4,WORDX
@@ -1436,6 +1479,7 @@ w3:
 word_buffer: times 32 dd 0
 
 %if 0
++comment
 	As well as reading in words we'll need to read in numbers and for that we are using a function
 	called NUMBER.  This parses a numeric string such as one returned by WORD and pushes the
 	number on the parameter stack.
@@ -1450,6 +1494,7 @@ word_buffer: times 32 dd 0
 	At the top of stack we return the number of unconverted characters (ie. if 0 then all characters
 	were converted, so there is no error).  Second from top of stack is the parsed number or a
 	partial value if there was an error.
+-comment
 %endif
 	defcode "NUMBER",6,NUMBER
 	pop ecx		;; length of string
@@ -1513,6 +1558,7 @@ nu4:	pop ebx
 nu5:	ret
 
 %if 0
++comment
 	DICTIONARY LOOK UPS ----------------------------------------------------------------------
 
 	We're building up to our prelude on how FORTH code is compiled, but first we need yet more infrastructure.
@@ -1534,6 +1580,7 @@ nu5:	ret
 	See also >CFA and >DFA.
 
 	FIND doesn't find dictionary entries which are flagged as HIDDEN.  See below for why.
+-comment
 %endif
 
 	defcode "FIND",4,FIND
@@ -1583,6 +1630,7 @@ fi4:	;; Not found.
 	ret
 
 %if 0
++comment
 	FIND returns the dictionary pointer, but when compiling we need the codeword pointer (recall
 	that FORTH definitions are compiled into lists of codeword pointers).  The standard FORTH
 	word >CFA turns a dictionary pointer into a codeword pointer.
@@ -1611,6 +1659,7 @@ fi4:	;; Not found.
 	quickly.
 
 	What does CFA stand for?  My best guess is "Code Field Address".
+-comment
 %endif
 
 	defcode ">CFA",4,TCFA
@@ -1630,6 +1679,7 @@ _TCFA:
 	ret
 
 %if 0
++comment
 	Related to >CFA is >DFA which takes a dictionary entry address as returned by FIND and
 	returns a pointer to the first data field.
 
@@ -1648,6 +1698,7 @@ _TCFA:
 	different from theirs, because they have an extra indirection).
 
 	You can see that >DFA is easily defined in FORTH just by adding 4 to the result of >CFA.
+-comment
 %endif
 
 	defword ">DFA",4,TDFA
@@ -1656,6 +1707,7 @@ _TCFA:
 	dd EXITX		;; EXIT		(return from FORTH word)
 
 %if 0
++comment
 	COMPILING ----------------------------------------------------------------------
 
 	Now we'll talk about how FORTH compiles words.  Recall that a word definition looks like this:
@@ -1803,6 +1855,7 @@ _TCFA:
 	CREATE is a standard FORTH word and the advantage of this split is that we can reuse it to
 	create other types of words (not just ones which contain code, but words which contain variables,
 	constants and other data).
+-comment
 %endif
 
 	defcode "CREATE",6,CREATE
@@ -1833,6 +1886,7 @@ _TCFA:
 	NEXT
 
 %if 0
++comment
 	Because I want to define : (COLON) in FORTH, not assembler, we need a few more FORTH words
 	to use.
 
@@ -1853,6 +1907,7 @@ _TCFA:
 
 	, (COMMA) is quite a fundamental operation when compiling.  It is used to append codewords
 	to the current word that is being compiled.
+-comment
 %endif
 
 	defcode ",",1,COMMA
@@ -1866,6 +1921,7 @@ _COMMA:
 	ret
 
 %if 0
++comment
 	Our definitions of : (COLON) and ; (SEMICOLON) will need to switch to and from compile mode.
 
 	Immediate mode vs. compile mode is stored in the global variable STATE, and by updating this
@@ -1882,6 +1938,7 @@ _COMMA:
 	interpreter saw [ then it would compile it rather than running it.  We would never be able to
 	switch back to immediate mode!  So we flag the word as IMMEDIATE so that even in compile mode
 	the word runs immediately, switching us back to immediate mode.
+-comment
 %endif
 
 	defcode "[",1,LBRAC,F_IMMED
@@ -1894,8 +1951,10 @@ _COMMA:
 	NEXT
 
 %if 0
++comment
 	Now we can define : (COLON) using CREATE.  It just calls CREATE, appends DOCOL (the codeword), sets
 	the word HIDDEN and goes into compile mode.
+-comment
 %endif
 
 	defword ":",1,COLON
@@ -1906,9 +1965,7 @@ _COMMA:
 	dd RBRAC		;; Go into compile mode.
 	dd EXITX		;; Return from the function.
 
-%if 0
-	; (SEMICOLON) is also elegantly simple.  Notice the F_IMMED flag.
-%endif
+	;; ';' (SEMICOLON) is also elegantly simple.  Notice the F_IMMED flag.
 
 	defword ";",1,SEMICOLON,F_IMMED
 	dd LIT, EXITX, COMMA	;; Append EXIT (so the word will return).
@@ -1917,6 +1974,7 @@ _COMMA:
 	dd EXITX		;; Return from the function.
 
 %if 0
++comment
 	EXTENDING THE COMPILER ----------------------------------------------------------------------
 
 	Words flagged with IMMEDIATE (F_IMMED) aren't just for the FORTH compiler to use.  You can define
@@ -1942,6 +2000,7 @@ _COMMA:
 	; IMMEDIATE
 
 	The two usages are equivalent, to a first approximation.
+-comment
 %endif
 
 	defcode "IMMEDIATE",9,IMMEDIATE,F_IMMED
@@ -1951,6 +2010,7 @@ _COMMA:
 	NEXT
 
 %if 0
++comment
 	'addr HIDDEN' toggles the hidden flag (F_HIDDEN) of the word defined at addr.  To hide the
 	most recently defined word (used above in : and ; definitions) you would do:
 
@@ -1970,6 +2030,7 @@ _COMMA:
 		HIDE SUB3
 
 	After this, only MAIN is 'exported' or seen by the rest of the program.
+-comment
 %endif
 
 	defcode "HIDDEN",6,HIDDEN
@@ -1985,6 +2046,7 @@ _COMMA:
 	dd EXITX		;; Return.
 
 %if 0
++comment
 	' (TICK) is a standard FORTH word which returns the codeword pointer of the next word.
 
 	The common usage is:
@@ -2011,6 +2073,7 @@ _COMMA:
 	This definition of ' uses a cheat which I copied from buzzard92.  As a result it only works in
 	compiled code.  It is possible to write a version of ' based on WORD, FIND, >CFA which works in
 	immediate mode too.
+-comment
 %endif
 	defcode "'",1,TICK	;; " clean me up CMS
 	lodsd			;; Get the address of the next word and skip it.
@@ -2018,6 +2081,7 @@ _COMMA:
 	NEXT
 
 %if 0
++comment
 	BRANCHING ----------------------------------------------------------------------
 
 	It turns out that all you need in order to define looping constructs, IF-statements, etc.
@@ -2056,6 +2120,7 @@ _COMMA:
 					  |		^
 					  |		|
 					  +-------------+
+-comment
 %endif
 
 	defcode "BRANCH",6,BRANCH
@@ -2070,6 +2135,7 @@ _COMMA:
 	NEXT
 
 %if 0
++comment
 	LITERAL STRINGS ----------------------------------------------------------------------
 
 	LITSTRING is a primitive used to implement the ." and S" operators (which are written in
@@ -2077,6 +2143,7 @@ _COMMA:
 
 	TELL just prints a string.  It's more efficient to define this in assembly because we
 	can make it a single Linux syscall.
+-comment
 %endif
 
 	defcode "LITSTRING",9,LITSTRING
@@ -2097,6 +2164,7 @@ _COMMA:
 	NEXT
 
 %if 0
++comment
 	QUIT AND INTERPRET ----------------------------------------------------------------------
 
 	QUIT is the first FORTH function called, almost immediately after the FORTH system "boots".
@@ -2107,6 +2175,7 @@ _COMMA:
 
 	INTERPRET is the FORTH interpreter ("toploop", "toplevel" or "REPL" might be a more accurate
 	description -- see: http://en.wikipedia.org/wiki/REPL).
+-comment
 %endif
 
 	;; QUIT must not return (ie. must not call EXIT).
@@ -2119,10 +2188,9 @@ _COMMA:
 cold_start:			;; High-level code without a codeword.
 	dd QUIT
 
-%if 0
-	This interpreter is pretty simple, but remember that in FORTH you can always override
-	it later with a more powerful one!
-%endif
+	;; This interpreter is pretty simple, but remember that in FORTH you can always override
+	;; it later with a more powerful one!
+
 	defcode "INTERPRET",9,INTERPRET
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
 
@@ -2216,6 +2284,7 @@ interpret_is_lit:
 	dd 0			;; Flag used to record if reading a literal
 
 %if 0
++comment
 	ODDS AND ENDS ----------------------------------------------------------------------
 
 	CHAR puts the ASCII code of the first character of the following word on the stack.  For example
@@ -2231,6 +2300,7 @@ interpret_is_lit:
 	In this FORTH, SYSCALL0 must be the last word in the built-in (assembler) dictionary because we
 	initialise the LATEST variable to point to it.  This means that if you want to extend the assembler
 	part, you must put new words before SYSCALL0, or else change how LATEST is initialised.
+-comment
 %endif
 
 	defcode "CHAR",4,CHAR
@@ -2276,6 +2346,7 @@ interpret_is_lit:
 	NEXT
 
 %if 0
++comment
 	DATA SEGMENT ----------------------------------------------------------------------
 
 	Here we set up the Linux data segment, used for user definitions and variously known as just
@@ -2298,12 +2369,13 @@ interpret_is_lit:
 	using the brk(2) system call, then ask it to reserve some initial space (also using brk(2)).
 
 	You don't need to worry about this code.
+-comment
 %endif
 	section .text
 	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
 	xor ebx,ebx		;; Call brk(0)
-	mov eax,SYS_break
+	mov eax,SYS_sbrk
 	int 0x80
 	mov [var_HERE],eax	;; Initialise HERE to point at beginning of data segment.
 	add eax,INITIAL_DATA_SEGMENT_SIZE	;; Reserve nn bytes of memory for initial data segment.
@@ -2312,10 +2384,9 @@ set_up_data_segment:
 	int 0x80
 	ret
 
-%if 0
-	We allocate static buffers for the return static and input buffer (used when
-	reading in files and text that the user types in).
-%endif
+	;; We allocate static buffers for the return static and input buffer (used when
+	;; reading in files and text that the user types in).
+
 	%define RETURN_STACK_SIZE 8192
 
 	section .bss
@@ -2330,6 +2401,7 @@ buffer:
 	resb BUFFER_SIZE
 
 %if 0
++comment
 	START OF FORTH CODE ----------------------------------------------------------------------
 
 	We've now reached the stage where the FORTH system is running and self-hosting.  All further
@@ -2342,6 +2414,7 @@ buffer:
 
 	If you don't already have that file, download it from http://annexia.org/forth in order
 	to continue the tutorial.
+-comment
 %endif
 
 ;; END OF jonesforth.S
