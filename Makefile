@@ -6,18 +6,20 @@ BUILD_ID_NONE :=
 SHELL	:= /bin/sh
 CC      = /Developer/usr/bin/gcc -I/Developer/SDKs/MacOSX10.7.sdk/usr/include
 
-all:	jonesforth
+all:	stforth
 
-jonesforth: jonesforth-nasm.S
-	nasm -g -f elf32 jonesforth-nasm.S -o stforth.o
-	ld -m elf_i386_fbsd stforth.o -o stforth
-	#$(CC) -m32 -nostdlib -static -Wl,-Ttext,0 $(BUILD_ID_NONE) -o $@ $<
+stforth: stforth.S
+	nasm -g -f elf32 stforth.S -o stforth.o
+	nasm -e -g -f elf32 stforth.S -o stforth.pp
+	ld -M -m elf_i386_fbsd stforth.o -o stforth > stforth.map
+	objdump -x -d stforth > stforth.dis
+	nm stforth > stforth.syms
 
 run:
 	cat jonesforth.f $(PROG) - | ./jonesforth
 
 clean:
-	rm -f jonesforth perf_dupdrop *~ core .test_*
+	rm -f stforth stforth.o stforth.core stforth.pp stforth.dis perf_dupdrop *~ *.core .test_*
 
 # Tests.
 

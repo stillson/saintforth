@@ -1,3 +1,5 @@
+;; asmsyntax=nasm
+
 %if 0
 +comment
 	A sometimes minimal FORTH compiler and tutorial for Linux / i386 systems. -*- asm -*-
@@ -311,7 +313,9 @@
 
 ;; NEXT macro.
 %macro NEXT 0
-	lodsd
+	;;lodsd
+	mov eax, [esi]
+	add esi, 4
 	jmp [eax]
 %endmacro
 
@@ -513,7 +517,7 @@
 
 ;; DOCOL - the interpreter! */
 	section .text
-	align 8
+	align 4
 	
 DOCOL:
 	PUSHRSP esi		;; push %esi on to the return stack
@@ -591,8 +595,9 @@ _start:
 	mov esi,[cold_start]	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
-;;
-;;	section .rodata
+;***  Code moved ***
+	;;section .rodata
+;;	section .text
 ;;cold_start:			;; High-level code without a codeword.
 ;;	QUIT
 
@@ -655,16 +660,17 @@ DOUBLE: .int DOCOL		// codeword
 	;; namelen = %2
 	;; label = %3
 	;; flags = %4
+	;; wow, redefining a macro in a macro. very cool.
 %macro defword 3-4 0
 	section .rodata
-	align 8
+	align 4
 	global name_%3
 name_%3 :
 	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
-	align 8		;; padding to next 4 byte boundary
+	align 4		;; padding to next 4 byte boundary
 	global %3
 %3 :
 	dd DOCOL		;; codeword - the interpreter
@@ -702,14 +708,14 @@ name_%3 :
 	;; flags %4
 %macro  defcode 3-4 0
 	section .rodata
-	align 8
+	align 4
 	global name_%3
 name_%3 :
 	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
-	align 8		;; padding to next 4 byte boundary
+	align 4		;; padding to next 4 byte boundary
 	global %3
 %3 :
 	dd code_%3	;; codeword
@@ -2184,7 +2190,8 @@ _COMMA:
 	dd INTERPRET		;; interpret the next word
 	dd BRANCH,-8		;; and loop (indefinitely)
 
-	section .rodata
+;;	section .rodata
+	section .text
 cold_start:			;; High-level code without a codeword.
 	dd QUIT
 
@@ -2279,7 +2286,7 @@ errmsgend:
 errmsgnl: db `\n`
 
 	section .data			;; NB: easier to fit in the .data section
-	align 8
+	align 4
 interpret_is_lit:
 	dd 0			;; Flag used to record if reading a literal
 
@@ -2375,13 +2382,19 @@ interpret_is_lit:
 	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
 	xor ebx,ebx		;; Call brk(0)
+        push ebx
+        push ebx
 	mov eax,SYS_sbrk
 	int 0x80
+        pop eax
 	mov [var_HERE],eax	;; Initialise HERE to point at beginning of data segment.
+
 	add eax,INITIAL_DATA_SEGMENT_SIZE	;; Reserve nn bytes of memory for initial data segment.
 	mov ebx,eax		;; Call brk(HERE+INITIAL_DATA_SEGMENT_SIZE)
-	mov eax,SYS_break
+        push ebx
+	mov eax,SYS_sbrk
 	int 0x80
+        pop ebx
 	ret
 
 	;; We allocate static buffers for the return static and input buffer (used when
@@ -2392,8 +2405,10 @@ set_up_data_segment:
 	section .bss
 ;; FORTH return stack.
 	align 4096
+zz_stack_1: resb RETURN_STACK_SIZE
 return_stack: resb RETURN_STACK_SIZE 
 return_stack_top:		;; Initial top of return stack.
+zz_stack_2: resb RETURN_STACK_SIZE
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
 	align 4096
