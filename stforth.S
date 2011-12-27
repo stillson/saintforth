@@ -11,11 +11,26 @@
 -comment
 %endif
 
+%include "nasm-sys32.inc"
+
 %define JONES_VERSION 47
 %define STF_VERSION   1
 ;; since this will one day be 64 bit
 ;; when it's 64 bit, this will be 8
 %define RWIDTH 4
+
+%macro DEBUGCALL 1
+    pusha
+    push 0
+    push %1
+    sys.setuid
+    pop eax
+    pop eax
+    pop eax
+    popa
+%endmacro
+
+
 %if 0
 +comment
 	INTRODUCTION ----------------------------------------------------------------------
@@ -316,10 +331,13 @@
 
 ;; NEXT macro.
 %macro NEXT 0
+        ;;DEBUGCALL esi
 	lodsd
 	;;mov eax, [esi]
 	;;add esi, 4
-	jmp [eax]
+        DEBUGCALL 1
+	;;jmp [eax]
+	jmp eax
 %endmacro
 
 %if 0
@@ -524,8 +542,10 @@
 	
 DOCOL:
 	PUSHRSP esi		;; push %esi on to the return stack
+        DEBUGCALL 2
 	add eax,RWIDTH		;; %eax points to codeword, so make
 	mov esi,eax		;; %esi point to first data word
+        DEBUGCALL 3 
 	NEXT
 
 %if 0
@@ -594,7 +614,6 @@ _start:
 	mov [var_SZ],esp          ;; Save the initial data stack pointer in FORTH variable S0.
 	mov ebp, return_stack_top ;; Initialise the return stack.
 	call set_up_data_segment
-
 	mov esi,[cold_start]	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
@@ -1013,6 +1032,7 @@ qdup_jump:
 %endif
 
 	defcode "EXIT",4,EXITX
+        DEBUGCALL 10
 	POPRSP esi		;; pop return stack into %esi
 	NEXT
 
@@ -1218,11 +1238,6 @@ var_%3 :
 -comment
 %endif
 
-;;#include <asm-i386/unistd.h>	;; you might need this instead
-;;#include <asm/unistd.h>
-;;#include <sys/syscall.h>
-;;%include "syscall.S"
-%include "nasm-sys32.inc"
 
 	;;.macro defconst name, namelen, flags=0, label, value
         ;; name %1
@@ -1284,6 +1299,7 @@ var_%3 :
 	NEXT
 
 	defcode "RSP!",4,RSPSTORE
+        DEBUGCALL 17
 	pop ebp
 	NEXT
 
@@ -2202,6 +2218,7 @@ cold_start:			;; High-level code without a codeword.
 	defcode "INTERPRET",9,INTERPRET
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
 
+        DEBUGCALL 20
 	;; Is it in the dictionary?
 	xor eax,eax
 	mov [interpret_is_lit],eax ;; Not a literal number (not yet anyway ...)
@@ -2387,7 +2404,8 @@ interpret_is_lit:
 	section .text
 	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
-        push dword 0                ;;offset
+        push dword 0                ;;???
+        push dword 0                ;;offset?
         push dword -1               ;;fd
         push dword MAP_ANON         ;; flags -> MAP_ANON
         push dword PROT_ALL         ;; prot -> PROT_READ | PROT_WRITE | PROT_EXEC
@@ -2396,7 +2414,7 @@ set_up_data_segment:
         sys.mmap
         jc suds_err
         mov [var_HERE], eax
-        add esp, 7 * RWIDTH
+        add esp, 8 * RWIDTH
         ret
 suds_err:
         push eax
