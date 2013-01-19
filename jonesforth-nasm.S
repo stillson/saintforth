@@ -1035,7 +1035,7 @@ qdup_jump:
 	;; %esi points to the next command, but in this case it points to the next
 	;; literal 32 bit integer.  Get that literal into %eax and increment %esi.
 	;; On x86, it's a convenient single byte instruction!  (cf. NEXT macro)
-	lodsw
+	lodsd
 	push eax		;; push the literal number on to stack
 	NEXT
 
@@ -2013,7 +2013,7 @@ _COMMA:
 	immediate mode too.
 %endif
 	defcode "'",1,TICK	;; " clean me up CMS
-	lodsw			;; Get the address of the next word and skip it.
+	lodsd			;; Get the address of the next word and skip it.
 	push eax		;; Push it on the stack.
 	NEXT
 
@@ -2066,7 +2066,7 @@ _COMMA:
 	pop eax
 	test eax,eax		;; top of stack is zero?
 	jz code_BRANCH		;; if so, jump back to the branch function above
-	lodsw			;; otherwise we need to skip the offset
+	lodsd			;; otherwise we need to skip the offset
 	NEXT
 
 %if 0
@@ -2080,7 +2080,7 @@ _COMMA:
 %endif
 
 	defcode "LITSTRING",9,LITSTRING
-	lodsw			;; get the length of the string
+	lodsd			;; get the length of the string
 	push esi		;; push the address of the start of the string
 	push eax		;; push it on the stack
 	add esi,eax		;; skip past the string
