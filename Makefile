@@ -3,13 +3,15 @@
 #BUILD_ID_NONE := -Wl,--build-id=none 
 BUILD_ID_NONE := 
 
-SHELL	:= /bin/bash
+SHELL	:= /usr/local/bin/bash
 CC      = /Developer/usr/bin/gcc -I/Developer/SDKs/MacOSX10.7.sdk/usr/include
 
 all:	jonesforth
 
-jonesforth: jonesforth.S
-	$(CC) -m32 -nostdlib -static -Wl,-Ttext,0 $(BUILD_ID_NONE) -o $@ $<
+jonesforth: jonesforth-nasm.S
+	nasm -g -f elf32 jonesforth-nasm.S -o stforth.o
+	ld -m elf_i386_fbsd stforth.o -o stforth
+	#$(CC) -m32 -nostdlib -static -Wl,-Ttext,0 $(BUILD_ID_NONE) -o $@ $<
 
 run:
 	cat jonesforth.f $(PROG) - | ./jonesforth

@@ -308,7 +308,7 @@
 
 ;; NEXT macro.
 %macro NEXT 0
-	lodsw
+	lodsd
 	jmp [eax]
 %endmacro
 
@@ -481,12 +481,12 @@
 	;; push reg on to return stack	
 %macro PUSHRSP 1
 	lea ebp,[ebp-4] 
-	mov %1,[ebp]
+	mov [ebp], %1
 %endmacro
 
 	;;.macro POPRSP reg
 %macro POPRSP 1	
-	mov [ebp], %1		;; pop top of return stack to reg
+	mov %1,[ebp]    	;; pop top of return stack to reg
 	lea ebp, [ebp + 4]
 %endmacro
 
@@ -510,8 +510,8 @@
 	
 DOCOL:
 	PUSHRSP esi		;; push %esi on to the return stack
-	add 4, eax		;; %eax points to codeword, so make
-	mov eax , esi		;; %esi point to first data word
+	add eax,4		;; %eax points to codeword, so make
+	mov esi,eax		;; %esi point to first data word
 	NEXT
 
 %if 0
@@ -575,16 +575,17 @@ stack points ->	| addr of DOUBLE   |	   + 4 =   +------------------+
 	global _start
 _start:
 	cld
-	mov esp,var_S0		    ;; Save the initial data stack pointer in FORTH variable S0.
+	mov [var_SZ],esp          ;; Save the initial data stack pointer in FORTH variable S0.
 	mov ebp, [return_stack_top] ;; Initialise the return stack.
 	call set_up_data_segment
 
-	mov esi, [cold_start]	;; Initialise interpreter.
+	mov esi,[cold_start]	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
-	section .rodata
-cold_start:			;; High-level code without a codeword.
-	QUIT
+;;
+;;	section .rodata
+;;cold_start:			;; High-level code without a codeword.
+;;	QUIT
 
 %if 0
 	BUILT-IN WORDS ----------------------------------------------------------------------
@@ -648,14 +649,14 @@ DOUBLE: .int DOCOL		// codeword
 	align 8
 	global name_%3
 name_%3 :
-	dw link		;; link
+	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
 	align 8		;; padding to next 4 byte boundary
 	global %3
 %3 :
-	dw DOCOL		;; codeword - the interpreter
+	dd DOCOL		;; codeword - the interpreter
 	;; list of word pointers follow
 %endmacro
 
@@ -691,14 +692,14 @@ name_%3 :
 	align 8
 	global name_%3
 name_%3 :
-	dw link		;; link
+	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
 	align 8		;; padding to next 4 byte boundary
 	global %3
 %3 :
-	dw code_%3	;; codeword
+	dd code_%3	;; codeword
 	section .text
 	;;.align 4
 	global code_%3
@@ -782,29 +783,29 @@ qdup_jump:
 	NEXT
 
 	defcode "1+",2,INCR
-	inc [esp]		;; increment top of stack
+	inc dword [esp]		;; increment top of stack
 	NEXT
 
 	defcode "1-",2,DECR
-	dec [esp]		;; decrement top of stack
+	dec dword [esp]		;; decrement top of stack
 	NEXT
 
 	defcode "4+",2,INCR4
-	add  [esp],4		;; add 4 to top of stack
+	add  dword [esp],4		;; add 4 to top of stack
 	NEXT
 
 	defcode "4-",2,DECR4
-	sub [esp], 4		;; subtract 4 from top of stack
+	sub dword [esp], 4		;; subtract 4 from top of stack
 	NEXT
 
 	defcode "+",1,ADD
 	pop eax		;; get top of stack
-	add [esp], eax	;; and add it to next word on stack
+	add dword [esp], eax	;; and add it to next word on stack
 	NEXT
 
 	defcode "-",1,SUB
 	pop  eax		;; get top of stack
-	sub [esp], eax		;; and subtract it from next word on stack
+	sub dword [esp], eax		;; and subtract it from next word on stack
 	NEXT
 
 	defcode "*",1,MUL
@@ -839,122 +840,122 @@ qdup_jump:
 	defcode "=",1,EQU	;; top two words are equal?
 	pop eax
 	pop ebx
-	cmp ebx, eax
-	sete %al
-	movzbl %al,%eax
-	pushl %eax
+	cmp eax, ebx
+	sete al
+        movzx eax, al
+	push eax
 	NEXT
 
-	defcode "<>",2,,NEQU	;; top two words are not equal?
-	pop %eax
-	pop %ebx
-	cmp %ebx,%eax
-	setne %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "<>",2,NEQU	;; top two words are not equal?
+	pop eax
+	pop ebx
+	cmp ebx,eax
+	setne al
+        movzx eax, al
+	push eax
 	NEXT
 
-	defcode "<",1,,LT
-	pop %eax
-	pop %ebx
-	cmp %eax,%ebx
-	setl %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "<",1,LT
+	pop eax
+	pop ebx
+	cmp eax,ebx
+	setl al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode ">",1,,GT
-	pop %eax
-	pop %ebx
-	cmp %eax,%ebx
-	setg %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode ">",1,GT
+	pop eax
+	pop ebx
+	cmp eax,ebx
+	setg al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "<=",2,,LE
-	pop %eax
-	pop %ebx
-	cmp %eax,%ebx
-	setle %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "<=",2,LE
+	pop eax
+	pop ebx
+	cmp eax,ebx
+	setle al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode ">=",2,,GE
-	pop %eax
-	pop %ebx
-	cmp %eax,%ebx
-	setge %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode ">=",2,GE
+	pop eax
+	pop ebx
+	cmp eax,ebx
+	setge al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0=",2,,ZEQU	;; top of stack equals 0?
-	pop %eax
-	test %eax,%eax
-	setz %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0=",2,ZEQU	;; top of stack equals 0?
+	pop eax
+	test eax,eax
+	setz al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0<>",3,,ZNEQU	;; top of stack not 0?
-	pop %eax
-	test %eax,%eax
-	setnz %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0<>",3,ZNEQU	;; top of stack not 0?
+	pop eax
+	test eax,eax
+	setnz al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0<",2,,ZLT	;; comparisons with 0
-	pop %eax
-	test %eax,%eax
-	setl %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0<",2,ZLT	;; comparisons with 0
+	pop eax
+	test eax,eax
+	setl al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0>",2,,ZGT
-	pop %eax
-	test %eax,%eax
-	setg %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0>",2,ZGT
+	pop eax
+	test eax,eax
+	setg al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0<=",3,,ZLE
-	pop %eax
-	test %eax,%eax
-	setle %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0<=",3,ZLE
+	pop eax
+	test eax,eax
+	setle al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "0>=",3,,ZGE
-	pop %eax
-	test %eax,%eax
-	setge %al
-	movzbl %al,%eax
-	pushl %eax
+	defcode "0>=",3,ZGE
+	pop eax
+	test eax,eax
+	setge al
+	movzx eax,al
+	push eax
 	NEXT
 
-	defcode "AND",3,,AND	;; bitwise AND
-	pop %eax
-	andl %eax,(%esp)
+	defcode "AND",3,AND	;; bitwise AND
+	pop eax
+	and [esp],eax
 	NEXT
 
-	defcode "OR",2,,OR	;; bitwise OR
-	pop %eax
-	orl %eax,(%esp)
+	defcode "OR",2,OR	;; bitwise OR
+	pop eax
+	or [esp],eax
 	NEXT
 
-	defcode "XOR",3,,XOR	;; bitwise XOR
-	pop %eax
-	xorl %eax,(%esp)
+	defcode "XOR",3,XOR	;; bitwise XOR
+	pop eax
+	xor [esp],eax
 	NEXT
 
-	defcode "INVERT",6,,INVERT ;; this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
-	notl (%esp)
+	defcode "INVERT",6,INVERT ;; this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
+	not dword [esp]
 	NEXT
 
 %if 0
@@ -980,8 +981,8 @@ qdup_jump:
 	What happens when the + function does NEXT?  Well, the following code is executed.
 %endif
 
-	defcode "EXIT",4,,EXIT
-	POPRSP %esi		;; pop return stack into %esi
+	defcode "EXIT",4,EXITX
+	POPRSP esi		;; pop return stack into %esi
 	NEXT
 
 %if 0
@@ -1030,12 +1031,12 @@ qdup_jump:
 	see if you can find out how LIT works:
 %endif
 
-	defcode "LIT",3,,LIT
+	defcode "LIT",3,LIT
 	;; %esi points to the next command, but in this case it points to the next
 	;; literal 32 bit integer.  Get that literal into %eax and increment %esi.
 	;; On x86, it's a convenient single byte instruction!  (cf. NEXT macro)
 	lodsw
-	push %eax		;; push the literal number on to stack
+	push eax		;; push the literal number on to stack
 	NEXT
 
 %if 0
@@ -1045,28 +1046,28 @@ qdup_jump:
 	of the machine.  Manipulating memory directly is done frequently in FORTH, and these are
 	the primitive words for doing it.
 %endif
-	defcode "!",1,,STORE
-	pop %ebx		;; address to store at
-	pop %eax		;; data to store there
-	mov %eax,(%ebx)		;; store it
+	defcode "!",1,STORE
+	pop ebx		;; address to store at
+	pop eax		;; data to store there
+	mov [ebx],eax		;; store it
 	NEXT
 
-	defcode "@",1,,FETCH
-	pop %ebx		;; address to fetch
-	mov (%ebx),%eax		;; fetch it
-	push %eax		;; push value onto stack
+	defcode "@",1,FETCH
+	pop ebx		;; address to fetch
+	mov eax, [ebx]		;; fetch it
+	push eax		;; push value onto stack
 	NEXT
 
-	defcode "+!",2,,ADDSTORE
-	pop %ebx		;; address
-	pop %eax		;; the amount to add
-	addl %eax,(%ebx)	;;;; add it
+	defcode "+!",2,ADDSTORE
+	pop ebx		;; address
+	pop eax		;; the amount to add
+	add [ebx],eax	;;;; add it
 	NEXT
 
-	defcode "-!",2,,SUBSTORE
-	pop %ebx		;; address
-	pop %eax		;; the amount to subtract
-	subl %eax,(%ebx)	;; add it
+	defcode "-!",2,SUBSTORE
+	pop ebx		;; address
+	pop eax		;; the amount to subtract
+	sub [ebx],eax	;; add it
 	NEXT
 
 %if 0
@@ -1076,37 +1077,37 @@ qdup_jump:
 	Byte-oriented operations only work on architectures which permit them (i386 is one of those).
 %endif
 
-	defcode "C!",2,,STOREBYTE
-	pop %ebx		;; address to store at
-	pop %eax		;; data to store there
-	movb %al,(%ebx)		;; store it
+	defcode "C!",2,STOREBYTE
+	pop ebx		;; address to store at
+	pop eax		;; data to store there
+	mov [ebx],al	;; store it
 	NEXT
 
-	defcode "C@",2,,FETCHBYTE
-	pop %ebx		;; address to fetch
-	xor %eax,%eax
-	movb (%ebx),%al		;; fetch it
-	push %eax		;; push value onto stack
+	defcode "C@",2,FETCHBYTE
+	pop ebx		;; address to fetch
+	xor eax,eax
+	mov al,[ebx]	;; fetch it
+	push eax	;; push value onto stack
 	NEXT
 
 ;; C@C! is a useful byte copy primitive.
-	defcode "C@C!",4,,CCOPY
-	movl 4(%esp),%ebx	;; source address
-	movb (%ebx),%al		;; get source character
-	pop %edi		;; destination address
+	defcode "C@C!",4,CCOPY
+	mov ebx,[esp + 4]	;; source address
+	mov al,[ebx]		;; get source character
+	pop  edi		;; destination address
 	stosb			;; copy to destination
-	push %edi		;; increment destination address
-	incl 4(%esp)		;; increment source address
+	push edi		;; increment destination address
+	inc dword [esp + 4]	;; increment source address
 	NEXT
 
 ;; and CMOVE is a block copy operation.
-	defcode "CMOVE",5,,CMOVE
-	mov %esi,%edx		;; preserve %esi
-	pop %ecx		;; length
-	pop %edi		;; destination address
-	pop %esi		;; source address
-	rep movsb		;; copy source to destination
-	mov %edx,%esi		;; restore %esi
+	defcode "CMOVE",5,CMOVE
+	mov edx,esi		;; preserve %esi
+	pop ecx		;; length
+	pop edi		;; destination address
+	pop esi		;; source address
+	rep movsb	;; copy source to destination
+	mov esi, edx	;; restore %esi
 	NEXT
 
 %if 0
@@ -1124,15 +1125,21 @@ qdup_jump:
 	defcode above.  (In fact the defvar macro uses defcode to do the dictionary header).
 %endif
 
-	.macro defvar name, namelen, flags=0, label, initial=0
-	defcode \name,\namelen,\flags,\label
-	push $var_\name
+	;;.macro defvar name, namelen, flags=0, label, initial=0
+        ;; name %1
+        ;; namelen %2
+        ;; label %3
+        ;; flags %4
+        ;; initial %5
+%macro defvar 3-5 0,0
+	defcode %1,%2,%3,%4
+	push var_%3
 	NEXT
-	.data
-	.align 4
-var_\name :
-	.int \initial
-	.endm
+	section .data
+	align 4
+var_%3 :
+	dd %5
+%endmacro
 
 %if 0
 	The built-in variables are:
@@ -1144,11 +1151,11 @@ var_\name :
 	BASE		The current base for printing and reading numbers.
 
 %endif
-	defvar "STATE",5,,STATE
-	defvar "HERE",4,,HERE
-	defvar "LATEST",6,,LATEST,name_SYSCALL0 ;; SYSCALL0 must be last in built-in dictionary
-	defvar "S0",2,,SZ
-	defvar "BASE",4,,BASE,10
+	defvar "STATE",5,STATE
+	defvar "HERE",4,HERE
+	defvar "LATEST",6,LATEST,0,name_SYSCALL0 ;; SYSCALL0 must be last in built-in dictionary
+	defvar "S0",2,SZ
+	defvar "BASE",4,BASE,10
 
 %if 0
 	BUILT-IN CONSTANTS ----------------------------------------------------------------------
@@ -1170,36 +1177,44 @@ var_\name :
 
 ;;#include <asm-i386/unistd.h>	;; you might need this instead
 ;;#include <asm/unistd.h>
-#include <sys/syscall.h>
-	.macro defconst name, namelen, flags=0, label, value
-	defcode \name,\namelen,\flags,\label
-	push $\value
+;;#include <sys/syscall.h>
+%include "syscall.S"
+
+	;;.macro defconst name, namelen, flags=0, label, value
+        ;; name %1
+        ;; namelen %2
+        ;; label %3
+        ;; value %4
+        ;; flags %5
+%macro  defconst 4-5 0
+	defcode %1,%2,%3,%5
+	push %4
 	NEXT
-	.endm
+%endmacro
 
-	defconst "VERSION",7,,VERSION,JONES_VERSION
-	defconst "R0",2,,RZ,return_stack_top
-	defconst "DOCOL",5,,__DOCOL,DOCOL
-	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
-	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
-	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
+	defconst "VERSION",7,VERSION,JONES_VERSION
+	defconst "R0",2,RZ,return_stack_top
+	defconst "DOCOL",5,__DOCOL,DOCOL
+	defconst "F_IMMED",7,__F_IMMED,F_IMMED
+	defconst "F_HIDDEN",8,__F_HIDDEN,F_HIDDEN
+	defconst "F_LENMASK",9,__F_LENMASK,F_LENMASK
 
-	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
-	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
-	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close
-	defconst "SYS_READ",8,,SYS_READ,__NR_read
-	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write
-	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_creat
-	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk
+	defconst "SYS_EXIT",8,SYS_EXIT,SYS_exit
+	defconst "SYS_OPEN",8,SYS_OPEN,SYS_open
+	defconst "SYS_CLOSE",9,SYS_CLOSE,SYS_close
+	defconst "SYS_READ",8,SYS_READ,SYS_read
+	defconst "SYS_WRITE",9,SYS_WRITE,SYS_write
+	defconst "SYS_CREAT",9,SYS_CREAT,SYS_open
+	defconst "SYS_BRK",7,SYS_BRK,SYS_break
 
-	defconst "O_RDONLY",8,,__O_RDONLY,0
-	defconst "O_WRONLY",8,,__O_WRONLY,1
-	defconst "O_RDWR",6,,__O_RDWR,2
-	defconst "O_CREAT",7,,__O_CREAT,0100
-	defconst "O_EXCL",6,,__O_EXCL,0200
-	defconst "O_TRUNC",7,,__O_TRUNC,01000
-	defconst "O_APPEND",8,,__O_APPEND,02000
-	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
+	defconst "O_RDONLY",8,__O_RDONLY,0
+	defconst "O_WRONLY",8,__O_WRONLY,1
+	defconst "O_RDWR",6,__O_RDWR,2
+	defconst "O_CREAT",7,__O_CREAT,0100
+	defconst "O_EXCL",6,__O_EXCL,0200
+	defconst "O_TRUNC",7,__O_TRUNC,01000
+	defconst "O_APPEND",8,__O_APPEND,02000
+	defconst "O_NONBLOCK",10,__O_NONBLOCK,04000
 
 %if 0
 	RETURN STACK ----------------------------------------------------------------------
@@ -1208,26 +1223,26 @@ var_\name :
 	the top of the return stack.
 %endif
 
-	defcode ">R",2,,TOR
-	pop %eax		;; pop parameter stack into %eax
-	PUSHRSP %eax		;; push it on to the return stack
+	defcode ">R",2,TOR
+	pop eax		;; pop parameter stack into %eax
+	PUSHRSP eax		;; push it on to the return stack
 	NEXT
 
-	defcode "R>",2,,FROMR
-	POPRSP %eax		;; pop return stack on to %eax
-	push %eax		;; and push on to parameter stack
+	defcode "R>",2,FROMR
+	POPRSP eax		;; pop return stack on to %eax
+	push eax		;; and push on to parameter stack
 	NEXT
 
-	defcode "RSP@",4,,RSPFETCH
-	push %ebp
+	defcode "RSP@",4,RSPFETCH
+	push ebp
 	NEXT
 
-	defcode "RSP!",4,,RSPSTORE
-	pop %ebp
+	defcode "RSP!",4,RSPSTORE
+	pop ebp
 	NEXT
 
-	defcode "RDROP",5,,RDROP
-	addl $4,%ebp		;; pop return stack and throw away
+	defcode "RDROP",5,RDROP
+	add ebp,4		;; pop return stack and throw away
 	NEXT
 
 %if 0
@@ -1237,13 +1252,13 @@ var_\name :
 	stack for us, and it is accessed through %esp.
 %endif
 
-	defcode "DSP@",4,,DSPFETCH
-	mov %esp,%eax
-	push %eax
+	defcode "DSP@",4,DSPFETCH
+	mov eax,esp
+	push eax
 	NEXT
 
-	defcode "DSP!",4,,DSPSTORE
-	pop %esp
+	defcode "DSP!",4,DSPSTORE
+	pop esp
 	NEXT
 
 %if 0
@@ -1283,45 +1298,46 @@ var_\name :
 
 	<---------------------- BUFFER_SIZE (4096 bytes) ---------------------->
 %endif
+	%define BUFFER_SIZE 4096
 
-	defcode "KEY",3,,KEY
+	defcode "KEY",3,KEY
 	call _KEY
-	push %eax		;; push return value on stack
+	push eax		;; push return value on stack
 	NEXT
 _KEY:
-	mov (currkey),%ebx
-	cmp (bufftop),%ebx
-	jge 1f			;; exhausted the input buffer?
-	xor %eax,%eax
-	mov (%ebx),%al		;; get next key from input buffer
-	inc %ebx
-	mov %ebx,(currkey)	;; increment currkey
+	mov ebx,[currkey]
+	cmp ebx,[bufftop]
+	jge exh			;; exhausted the input buffer?
+	xor eax,eax
+	mov al, [ebx]		;; get next key from input buffer
+	inc ebx
+	mov [currkey],ebx	;; increment currkey
 	ret
 
-1:	;; Out of input; use read(2) to fetch more input from stdin.
-	xor %ebx,%ebx		;; 1st param: stdin
-	mov $buffer,%ecx	;; 2nd param: buffer
-	mov %ecx,currkey
-	mov $BUFFER_SIZE,%edx	;; 3rd param: max length
-	mov $__NR_read,%eax	;; syscall: read
-	int $0x80
-	test %eax,%eax		;; If %eax <= 0, then exit.
-	jbe 2f
-	addl %eax,%ecx		;; buffer+%eax = bufftop
-	mov %ecx,bufftop
+exh:	;; Out of input; use read(2) to fetch more input from stdin.
+	xor ebx,ebx		;; 1st param: stdin
+	mov ecx, buffer 	;; 2nd param: buffer
+	mov [currkey], ecx
+	mov edx, BUFFER_SIZE	;; 3rd param: max length
+	mov eax, SYS_read	;; syscall: read
+	int 0x80
+	test eax,eax		;; If %eax <= 0, then exit.
+	jbe eout
+	add ecx,eax		;; buffer+%eax = bufftop
+	mov [bufftop],ecx
 	jmp _KEY
 
-2:	;; Error or end of input: exit the program.
-	xor %ebx,%ebx
-	mov $__NR_exit,%eax	;; syscall: exit
-	int $0x80
+eout:	;; Error or end of input: exit the program.
+	xor ebx,ebx
+	mov eax,SYS_exit	;; syscall: exit
+	int 0x80
 
-	.data
-	.align 4
+	section .data
+	align 4
 currkey:
-	.int buffer		;; Current place in input buffer (next character to read).
+        dd 0			;; Current place in input buffer (next character to read).
 bufftop:
-	.int buffer		;; Last valid data in input buffer + 1.
+        dd 0			;; Last valid data in input buffer + 1.
 
 %if 0
 	By contrast, output is much simpler.  The FORTH word EMIT writes out a single byte to stdout.
@@ -1329,26 +1345,25 @@ bufftop:
 	it would be a good exercise to add it.
 %endif
 
-	defcode "EMIT",4,,EMIT
-	pop %eax
+	defcode "EMIT",4,EMIT
+	pop eax
 	call _EMIT
 	NEXT
 _EMIT:
-	mov $1,%ebx		;; 1st param: stdout
+	mov ebx,1		;; 1st param: stdout
 
 	;; write needs the address of the byte to write
-	mov %al,emit_scratch
-	mov $emit_scratch,%ecx	;; 2nd param: address
+	mov [emit_scratch],al
+	mov ecx, emit_scratch	;; 2nd param: address
 
-	mov $1,%edx		;; 3rd param: nbytes = 1
+	mov edx,1		;; 3rd param: nbytes = 1
 
-	mov $__NR_write,%eax	;; write syscall
-	int $0x80
+	mov eax,SYS_write	;; write syscall
+	int 0x80
 	ret
 
-	.data			;; NB: easier to fit in the .data section
-emit_scratch:
-	.space 1		;; scratch used by EMIT
+	section .data			;; NB: easier to fit in the .data section
+emit_scratch:   db 0,0 ;; scratch used by EMIT
 
 %if 0
 	Back to input, WORD is a FORTH word which reads the next full word of input.
@@ -1379,47 +1394,46 @@ emit_scratch:
 	and immediate mode, and you'll understand why.
 %endif
 
-	defcode "WORD",4,,WORD
+	defcode "WORD",4,WORDX
 	call _WORD
-	push %edi		;; push base address
-	push %ecx		;; push length
+	push edi		;; push base address
+	push ecx		;; push length
 	NEXT
 
 _WORD:
 	;; Search for first non-blank character.  Also skip \ comments.
-1:
+beg:
 	call _KEY		;; get next key, returned in %eax
-	cmpb $'\\',%al		;; start of a comment?
-	je 3f			;; if so, skip the comment
-	cmpb $' ',%al
-	jbe 1b			;; if so, keep looking
+	cmp al,'\'		;; start of a comment?
+	je w3			;; if so, skip the comment
+	cmp al,' '
+	jbe beg			;; if so, keep looking
 
 	;; Search for the end of the word, storing chars as we go.
-	mov $word_buffer,%edi	;; pointer to return buffer
-2:
+	mov edi,word_buffer	;; pointer to return buffer
+w2:
 	stosb			;; add character to return buffer
 	call _KEY		;; get next key, returned in %al
-	cmpb $' ',%al		;; is blank?
-	ja 2b			;; if not, keep looping
+	cmp al,' '		;; is blank?
+	ja w2			;; if not, keep looping
 
 	;; Return the word (well, the static buffer) and length.
-	sub $word_buffer,%edi
-	mov %edi,%ecx		;; return length of the word
-	mov $word_buffer,%edi	;; return address of the word
+	sub edi,word_buffer
+	mov ecx,edi		;; return length of the word
+	mov edi,word_buffer	;; return address of the word
 	ret
 
 	;; Code to skip \ comments to end of the current line.
-3:
+w3:
 	call _KEY
-	cmpb $'\n',%al		;; end of line yet?
-	jne 3b
-	jmp 1b
+	cmp al,`\n`		;; end of line yet?
+	jne w3
+	jmp beg
 
-	.data			;; NB: easier to fit in the .data section
+	section .data		;; NB: easier to fit in the .data section
 	;; A static buffer where WORD returns.  Subsequent calls
 	;; overwrite this buffer.  Maximum word length is 32 chars.
-word_buffer:
-	.space 32
+word_buffer: times 32 dd 0
 
 %if 0
 	As well as reading in words we'll need to read in numbers and for that we are using a function
@@ -1437,66 +1451,66 @@ word_buffer:
 	were converted, so there is no error).  Second from top of stack is the parsed number or a
 	partial value if there was an error.
 %endif
-	defcode "NUMBER",6,,NUMBER
-	pop %ecx		;; length of string
-	pop %edi		;; start address of string
+	defcode "NUMBER",6,NUMBER
+	pop ecx		;; length of string
+	pop edi		;; start address of string
 	call _NUMBER
-	push %eax		;; parsed number
-	push %ecx		;; number of unparsed characters (0 = no error)
+	push eax		;; parsed number
+	push ecx		;; number of unparsed characters (0 = no error)
 	NEXT
 
 _NUMBER:
-	xor %eax,%eax
-	xor %ebx,%ebx
+	xor eax,eax
+	xor ebx,ebx
 
-	test %ecx,%ecx		;; trying to parse a zero-length string is an error, but will return 0.
-	jz 5f
+	test ecx,ecx		;; trying to parse a zero-length string is an error, but will return 0.
+	jz nu5
 
-	movl var_BASE,%edx	;; get BASE (in %dl)
+	mov edx,var_BASE	;; get BASE (in %dl)
 
 	;; Check if first character is '-'.
-	movb (%edi),%bl		;; %bl = first character in string
-	inc %edi
-	push %eax		;; push 0 on stack
-	cmpb $'-',%bl		;; negative number?
-	jnz 2f
-	pop %eax
-	push %ebx		;; push <> 0 on stack, indicating negative
-	dec %ecx
-	jnz 1f
-	pop %ebx		;; error: string is only '-'.
-	movl $1,%ecx
+	mov bl,[edi]		;; %bl = first character in string
+	inc edi
+	push eax		;; push 0 on stack
+	cmp bl,'-'		;; negative number?
+	jnz nu2
+	pop eax
+	push ebx		;; push <> 0 on stack, indicating negative
+	dec ecx
+	jnz nu1
+	pop ebx		;; error: string is only '-'.
+	mov ecx,1
 	ret
 
 	;; Loop reading digits.
-1:	imull %edx,%eax		;; %eax *= BASE
-	movb (%edi),%bl		;; %bl = next character in string
-	inc %edi
+nu1:	imul eax,edx		;; %eax *= BASE
+	mov bl,[edi]		;; %bl = next character in string
+	inc edi
 
 	;; Convert 0-9, A-Z to a number 0-35.
-2:	subb $'0',%bl		;; < '0'?
-	jb 4f
-	cmp $10,%bl		;; <= '9'?
-	jb 3f
-	subb $17,%bl		;; < 'A'? (17 is 'A'-'0')
-	jb 4f
-	addb $10,%bl
+nu2:	sub bl,'0'		;; < '0'?
+	jb nu4
+	cmp bl,10		;; <= '9'?
+	jb nu3
+	sub bl,17		;; < 'A'? (17 is 'A'-'0')
+	jb nu4
+	add bl,10
 
-3:	cmp %dl,%bl		;; >= BASE?
-	jge 4f
+nu3:	cmp bl,dl		;; >= BASE?
+	jge nu4
 
 	;; OK, so add it to %eax and loop.
-	add %ebx,%eax
-	dec %ecx
-	jnz 1b
+	add eax,ebx
+	dec ecx
+	jnz nu1
 
 	;; Negate the result if first character was '-' (saved on the stack).
-4:	pop %ebx
-	test %ebx,%ebx
-	jz 5f
-	neg %eax
+nu4:	pop ebx
+	test ebx,ebx
+	jz nu5
+	neg eax
 
-5:	ret
+nu5:	ret
 
 %if 0
 	DICTIONARY LOOK UPS ----------------------------------------------------------------------
@@ -1522,50 +1536,50 @@ _NUMBER:
 	FIND doesn't find dictionary entries which are flagged as HIDDEN.  See below for why.
 %endif
 
-	defcode "FIND",4,,FIND
-	pop %ecx		;; %ecx = length
-	pop %edi		;; %edi = address
+	defcode "FIND",4,FIND
+	pop ecx		;; %ecx = length
+	pop edi		;; %edi = address
 	call _FIND
-	push %eax		;; %eax = address of dictionary entry (or NULL)
+	push eax		;; %eax = address of dictionary entry (or NULL)
 	NEXT
 
 _FIND:
-	push %esi		;; Save %esi so we can use it in string comparison.
+	push esi		;; Save %esi so we can use it in string comparison.
 
 	;; Now we start searching backwards through the dictionary for this word.
-	mov var_LATEST,%edx	;; LATEST points to name header of the latest word in the dictionary
-1:	test %edx,%edx		;; NULL pointer?  (end of the linked list)
-	je 4f
+	mov edx,var_LATEST	;; LATEST points to name header of the latest word in the dictionary
+fi1:	test edx,edx		;; NULL pointer?  (end of the linked list)
+	je fi4
 
 	;; Compare the length expected and the length of the word.
 	;; Note that if the F_HIDDEN flag is set on the word, then by a bit of trickery
 	;; this won't pick the word (the length will appear to be wrong).
-	xor %eax,%eax
-	movb 4(%edx),%al	;; %al = flags+length field
-	andb $(F_HIDDEN|F_LENMASK),%al ;; %al = name length
-	cmpb %cl,%al		;; Length is the same?
-	jne 2f
+	xor eax,eax
+	mov al,[edx+4]	        ;; %al = flags+length field
+	and al,F_HIDDEN|F_LENMASK ;; %al = name length
+	cmp cl,al		;; Length is the same?
+	jne fi2
 
 	;; Compare the strings in detail.
-	push %ecx		;; Save the length
-	push %edi		;; Save the address (repe cmpsb will move this pointer)
-	lea 5(%edx),%esi	;; Dictionary string we are checking against.
-	repe cmpsb		;; Compare the strings.
-	pop %edi
-	pop %ecx
-	jne 2f			;; Not the same.
+	push ecx		;; Save the length
+	push edi		;; Save the address (repe cmpsb will move this pointer)
+	lea esi,[edx+5] 	;; Dictionary string we are checking against.
+	rep cmpsb		;; Compare the strings.
+	pop edi
+	pop ecx
+	jne fi2			;; Not the same.
 
 	;; The strings are the same - return the header pointer in %eax
-	pop %esi
-	mov %edx,%eax
+	pop esi
+	mov eax,edx
 	ret
 
-2:	mov (%edx),%edx		;; Move back through the link field to the previous word
-	jmp 1b			;; .. and loop.
+fi2:	mov edx,[edx]		;; Move back through the link field to the previous word
+	jmp fi1			;; .. and loop.
 
-4:	;; Not found.
-	pop %esi
-	xor %eax,%eax		;; Return zero to indicate not found.
+fi4:	;; Not found.
+	pop esi
+	xor eax,eax		;; Return zero to indicate not found.
 	ret
 
 %if 0
@@ -1599,20 +1613,20 @@ _FIND:
 	What does CFA stand for?  My best guess is "Code Field Address".
 %endif
 
-	defcode ">CFA",4,,TCFA
-	pop %edi
+	defcode ">CFA",4,TCFA
+	pop edi
 	call _TCFA
-	push %edi
+	push edi
 	NEXT
 _TCFA:
-	xor %eax,%eax
-	add $4,%edi		;; Skip link pointer.
-	movb (%edi),%al		;; Load flags+len into %al.
-	inc %edi		;; Skip flags+len byte.
-	andb $F_LENMASK,%al	;; Just the length, not the flags.
-	add %eax,%edi		;; Skip the name.
-	addl $3,%edi		;; The codeword is 4-byte aligned.
-	andl $~3,%edi
+	xor eax,eax
+	add edi,4		;; Skip link pointer.
+	mov al,[edi]		;; Load flags+len into %al.
+	inc edi	        	;; Skip flags+len byte.
+	and al,F_LENMASK	;; Just the length, not the flags.
+	add edi,eax		;; Skip the name.
+	add edi,3		;; The codeword is 4-byte aligned.
+	and edi,~3
 	ret
 
 %if 0
@@ -1636,10 +1650,10 @@ _TCFA:
 	You can see that >DFA is easily defined in FORTH just by adding 4 to the result of >CFA.
 %endif
 
-	defword ">DFA",4,,TDFA
-	.int TCFA		;; >CFA		(get code field address)
-	.int INCR4		;; 4+		(add 4 to it to get to next word)
-	.int EXIT		;; EXIT		(return from FORTH word)
+	defword ">DFA",4,TDFA
+	dd TCFA 		;; >CFA		(get code field address)
+	dd INCR4		;; 4+		(add 4 to it to get to next word)
+	dd EXITX		;; EXIT		(return from FORTH word)
 
 %if 0
 	COMPILING ----------------------------------------------------------------------
@@ -1791,31 +1805,31 @@ _TCFA:
 	constants and other data).
 %endif
 
-	defcode "CREATE",6,,CREATE
+	defcode "CREATE",6,CREATE
 
 	;; Get the name length and address.
-	pop %ecx		;; %ecx = length
-	pop %ebx		;; %ebx = address of name
+	pop ecx		;; %ecx = length
+	pop ebx		;; %ebx = address of name
 
 	;; Link pointer.
-	movl var_HERE,%edi	;; %edi is the address of the header
-	movl var_LATEST,%eax	;; Get link pointer
-	stosl			;; and store it in the header.
+	mov edi,var_HERE	;; %edi is the address of the header
+	mov eax,var_LATEST	;; Get link pointer
+	stosw			;; and store it in the header.
 
 	;; Length byte and the word itself.
-	mov %cl,%al		;; Get the length.
+	mov al,cl		;; Get the length.
 	stosb			;; Store the length/flags byte.
-	push %esi
-	mov %ebx,%esi		;; %esi = word
+	push esi
+	mov esi,ebx		;; %esi = word
 	rep movsb		;; Copy the word
-	pop %esi
-	addl $3,%edi		;; Align to next 4 byte boundary.
-	andl $~3,%edi
+	pop esi
+	add edi,3		;; Align to next 4 byte boundary.
+	and edi,~3
 
 	;; Update LATEST and HERE.
-	movl var_HERE,%eax
-	movl %eax,var_LATEST
-	movl %edi,var_HERE
+	mov eax,var_HERE
+	mov [var_LATEST],eax
+	mov [var_HERE],edi
 	NEXT
 
 %if 0
@@ -1841,14 +1855,14 @@ _TCFA:
 	to the current word that is being compiled.
 %endif
 
-	defcode ",",1,,COMMA
-	pop %eax		;; Code pointer to store.
+	defcode ",",1,COMMA
+	pop eax		;; Code pointer to store.
 	call _COMMA
 	NEXT
 _COMMA:
-	movl var_HERE,%edi	;; HERE
-	stosl			;; Store it.
-	movl %edi,var_HERE	;; Update HERE (incremented)
+	mov edi,var_HERE	;; HERE
+	stosw			;; Store it.
+	mov [var_HERE],edi	;; Update HERE (incremented)
 	ret
 
 %if 0
@@ -1870,13 +1884,13 @@ _COMMA:
 	the word runs immediately, switching us back to immediate mode.
 %endif
 
-	defcode "[",1,F_IMMED,LBRAC
-	xor %eax,%eax
-	movl %eax,var_STATE	;; Set STATE to 0.
+	defcode "[",1,LBRAC,F_IMMED
+	xor eax,eax
+	mov [var_STATE],eax	;; Set STATE to 0.
 	NEXT
 
-	defcode "]",1,,RBRAC
-	movl $1,var_STATE	;; Set STATE to 1.
+	defcode "]",1,RBRAC
+	mov [var_STATE],dword 1	;; Set STATE to 1.
 	NEXT
 
 %if 0
@@ -1884,23 +1898,23 @@ _COMMA:
 	the word HIDDEN and goes into compile mode.
 %endif
 
-	defword ":",1,,COLON
-	.int WORD		;; Get the name of the new word
-	.int CREATE		;; CREATE the dictionary entry / header
-	.int LIT, DOCOL, COMMA	;; Append DOCOL  (the codeword).
-	.int LATEST, FETCH, HIDDEN ;; Make the word hidden (see below for definition).
-	.int RBRAC		;; Go into compile mode.
-	.int EXIT		;; Return from the function.
+	defword ":",1,COLON
+	dd WORDX		;; Get the name of the new word
+	dd CREATE		;; CREATE the dictionary entry / header
+	dd LIT, DOCOL, COMMA	;; Append DOCOL  (the codeword).
+	dd LATEST, FETCH, HIDDEN ;; Make the word hidden (see below for definition).
+	dd RBRAC		;; Go into compile mode.
+	dd EXITX		;; Return from the function.
 
 %if 0
 	; (SEMICOLON) is also elegantly simple.  Notice the F_IMMED flag.
 %endif
 
-	defword ";",1,F_IMMED,SEMICOLON
-	.int LIT, EXIT, COMMA	;; Append EXIT (so the word will return).
-	.int LATEST, FETCH, HIDDEN ;; Toggle hidden flag -- unhide the word (see below for definition).
-	.int LBRAC		;; Go back to IMMEDIATE mode.
-	.int EXIT		;; Return from the function.
+	defword ";",1,SEMICOLON,F_IMMED
+	dd LIT, EXITX, COMMA	;; Append EXIT (so the word will return).
+	dd LATEST, FETCH, HIDDEN ;; Toggle hidden flag -- unhide the word (see below for definition).
+	dd LBRAC		;; Go back to IMMEDIATE mode.
+	dd EXITX		;; Return from the function.
 
 %if 0
 	EXTENDING THE COMPILER ----------------------------------------------------------------------
@@ -1930,10 +1944,10 @@ _COMMA:
 	The two usages are equivalent, to a first approximation.
 %endif
 
-	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE
-	movl var_LATEST,%edi	;; LATEST word.
-	addl $4,%edi		;; Point to name/flags byte.
-	xorb $F_IMMED,(%edi)	;; Toggle the IMMED bit.
+	defcode "IMMEDIATE",9,IMMEDIATE,F_IMMED
+	mov edi,var_LATEST	;; LATEST word.
+	add edi,4		;; Point to name/flags byte.
+	xor [edi],byte F_IMMED	;; Toggle the IMMED bit.
 	NEXT
 
 %if 0
@@ -1958,17 +1972,17 @@ _COMMA:
 	After this, only MAIN is 'exported' or seen by the rest of the program.
 %endif
 
-	defcode "HIDDEN",6,,HIDDEN
-	pop %edi		;; Dictionary entry.
-	addl $4,%edi		;; Point to name/flags byte.
-	xorb $F_HIDDEN,(%edi)	;; Toggle the HIDDEN bit.
+	defcode "HIDDEN",6,HIDDEN
+	pop edi		;; Dictionary entry.
+	add edi,4		;; Point to name/flags byte.
+	xor [edi],byte F_HIDDEN	;; Toggle the HIDDEN bit.
 	NEXT
 
-	defword "HIDE",4,,HIDE
-	.int WORD		;; Get the word (after HIDE).
-	.int FIND		;; Look up in the dictionary.
-	.int HIDDEN		;; Set F_HIDDEN flag.
-	.int EXIT		;; Return.
+	defword "HIDE",4,HIDE
+	dd WORDX		;; Get the word (after HIDE).
+	dd FIND		;; Look up in the dictionary.
+	dd HIDDEN		;; Set F_HIDDEN flag.
+	dd EXITX		;; Return.
 
 %if 0
 	' (TICK) is a standard FORTH word which returns the codeword pointer of the next word.
@@ -1998,9 +2012,9 @@ _COMMA:
 	compiled code.  It is possible to write a version of ' based on WORD, FIND, >CFA which works in
 	immediate mode too.
 %endif
-	defcode "'",1,,TICK	;; " clean me up CMS
+	defcode "'",1,TICK	;; " clean me up CMS
 	lodsw			;; Get the address of the next word and skip it.
-	pushl %eax		;; Push it on the stack.
+	push eax		;; Push it on the stack.
 	NEXT
 
 %if 0
@@ -2044,13 +2058,13 @@ _COMMA:
 					  +-------------+
 %endif
 
-	defcode "BRANCH",6,,BRANCH
-	add (%esi),%esi		;; add the offset to the instruction pointer
+	defcode "BRANCH",6,BRANCH
+	add esi,[esi]		;; add the offset to the instruction pointer
 	NEXT
 
-	defcode "0BRANCH",7,,ZBRANCH
-	pop %eax
-	test %eax,%eax		;; top of stack is zero?
+	defcode "0BRANCH",7,ZBRANCH
+	pop eax
+	test eax,eax		;; top of stack is zero?
 	jz code_BRANCH		;; if so, jump back to the branch function above
 	lodsw			;; otherwise we need to skip the offset
 	NEXT
@@ -2065,21 +2079,21 @@ _COMMA:
 	can make it a single Linux syscall.
 %endif
 
-	defcode "LITSTRING",9,,LITSTRING
+	defcode "LITSTRING",9,LITSTRING
 	lodsw			;; get the length of the string
-	push %esi		;; push the address of the start of the string
-	push %eax		;; push it on the stack
-	addl %eax,%esi		;; skip past the string
- 	addl $3,%esi		;; but round up to next 4 byte boundary
-	andl $~3,%esi
+	push esi		;; push the address of the start of the string
+	push eax		;; push it on the stack
+	add esi,eax		;; skip past the string
+ 	add esi,3		;; but round up to next 4 byte boundary
+	and esi,~3
 	NEXT
 
-	defcode "TELL",4,,TELL
-	mov $1,%ebx		;; 1st param: stdout
-	pop %edx		;; 3rd param: length of string
-	pop %ecx		;; 2nd param: address of string
-	mov $__NR_write,%eax	;; write syscall
-	int $0x80
+	defcode "TELL",4,TELL
+	mov ebx,1		;; 1st param: stdout
+	pop edx		;; 3rd param: length of string
+	pop ecx		;; 2nd param: address of string
+	mov eax,SYS_write	;; write syscall
+	int 0x80
 	NEXT
 
 %if 0
@@ -2096,106 +2110,110 @@ _COMMA:
 %endif
 
 	;; QUIT must not return (ie. must not call EXIT).
-	defword "QUIT",4,,QUIT
-	.int RZ,RSPSTORE	;; R0 RSP!, clear the return stack
-	.int INTERPRET		;; interpret the next word
-	.int BRANCH,-8		;; and loop (indefinitely)
+	defword "QUIT",5,QUIT
+	dd RZ,RSPSTORE	        ;; R0 RSP!, clear the return stack
+	dd INTERPRET		;; interpret the next word
+	dd BRANCH,-8		;; and loop (indefinitely)
+
+	section .rodata
+cold_start:			;; High-level code without a codeword.
+	dd QUIT
 
 %if 0
 	This interpreter is pretty simple, but remember that in FORTH you can always override
 	it later with a more powerful one!
 %endif
-	defcode "INTERPRET",9,,INTERPRET
+	defcode "INTERPRET",9,INTERPRET
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
 
 	;; Is it in the dictionary?
-	xor %eax,%eax
-	movl %eax,interpret_is_lit ;; Not a literal number (not yet anyway ...)
+	xor eax,eax
+	mov [interpret_is_lit],eax ;; Not a literal number (not yet anyway ...)
 	call _FIND		;; Returns %eax = pointer to header or 0 if not found.
-	test %eax,%eax		;; Found?
-	jz 1f
+	test eax,eax		;; Found?
+	jz inx1
 
 	;; In the dictionary.  Is it an IMMEDIATE codeword?
-	mov %eax,%edi		;; %edi = dictionary entry
-	movb 4(%edi),%al	;; Get name+flags.
-	push %ax		;; Just save it for now.
+	mov edi,eax		;; %edi = dictionary entry
+	mov al,[edi+4]	;; Get name+flags.
+	push ax		;; Just save it for now.
 	call _TCFA		;; Convert dictionary entry (in %edi) to codeword pointer.
-	pop %ax
-	andb $F_IMMED,%al	;; Is IMMED flag set?
-	mov %edi,%eax
-	jnz 4f			;; If IMMED, jump straight to executing.
+	pop ax
+	and al,F_IMMED	;; Is IMMED flag set?
+	mov eax,edi
+	jnz inx4			;; If IMMED, jump straight to executing.
 
-	jmp 2f
+	jmp inx2
 
-1:	;; Not in the dictionary (not a word) so assume it's a literal number.
-	incl interpret_is_lit
+inx1:	;; Not in the dictionary (not a word) so assume it's a literal number.
+	inc dword [interpret_is_lit]
 	call _NUMBER		;; Returns the parsed number in %eax, %ecx > 0 if error
-	test %ecx,%ecx
-	jnz 6f
-	mov %eax,%ebx
-	mov $LIT,%eax		;; The word is LIT
+	test ecx,ecx
+	jnz inx6
+	mov ebx,eax
+	mov eax,LIT		;; The word is LIT
 
-2:	;; Are we compiling or executing?
-	movl var_STATE,%edx
-	test %edx,%edx
-	jz 4f			;; Jump if executing.
+inx2:	;; Are we compiling or executing?
+	mov edx,var_STATE
+	test edx,edx
+	jz inx4			;; Jump if executing.
 
 	;; Compiling - just append the word to the current dictionary definition.
 	call _COMMA
-	mov interpret_is_lit,%ecx ;; Was it a literal?
-	test %ecx,%ecx
-	jz 3f
-	mov %ebx,%eax		;; Yes, so LIT is followed by a number.
+	mov ecx,interpret_is_lit ;; Was it a literal?
+	test ecx,ecx
+	jz inx3
+	mov eax,ebx		;; Yes, so LIT is followed by a number.
 	call _COMMA
-3:	NEXT
+inx3:	NEXT
 
-4:	;; Executing - run it!
-	mov interpret_is_lit,%ecx ;; Literal?
-	test %ecx,%ecx		;; Literal?
-	jnz 5f
+inx4:	;; Executing - run it!
+	mov ecx,interpret_is_lit ;; Literal?
+	test ecx,ecx		;; Literal?
+	jnz inx5
 
 	;; Not a literal, execute it now.  This never returns, but the codeword will
 	;; eventually call NEXT which will reenter the loop in QUIT.
-	jmp *(%eax)
+	jmp [eax]
 
-5:	;; Executing a literal, which means push it on the stack.
-	push %ebx
+inx5:	;; Executing a literal, which means push it on the stack.
+	push ebx
 	NEXT
 
-6:	;; Parse error (not a known word or a number in the current BASE).
+inx6:	;; Parse error (not a known word or a number in the current BASE).
 	;; Print an error message followed by up to 40 characters of context.
-	mov $2,%ebx		;; 1st param: stderr
-	mov $errmsg,%ecx	;; 2nd param: error message
-	mov $errmsgend-errmsg,%edx ;; 3rd param: length of string
-	mov $__NR_write,%eax	;; write syscall
-	int $0x80
+	mov ebx,2		;; 1st param: stderr
+	mov ecx,errmsg	;; 2nd param: error message
+	mov edx,errmsgend-errmsg ;; 3rd param: length of string
+	mov eax,SYS_write	;; write syscall
+	int 0x80
 
-	mov (currkey),%ecx	;; the error occurred just before currkey position
-	mov %ecx,%edx
-	sub $buffer,%edx	;; %edx = currkey - buffer (length in buffer before currkey)
-	cmp $40,%edx		;; if > 40, then print only 40 characters
-	jle 7f
-	mov $40,%edx
-7:	sub %edx,%ecx		;; %ecx = start of area to print, %edx = length
-	mov $__NR_write,%eax	;; write syscall
-	int $0x80
+	mov ecx,[currkey]	;; the error occurred just before currkey position
+	mov edx,ecx
+	sub edx,buffer	;; %edx = currkey - buffer (length in buffer before currkey)
+	cmp edx,40		;; if > 40, then print only 40 characters
+	jle inx7
+	mov edx,40
+inx7:	sub ecx,edx		;; %ecx = start of area to print, %edx = length
+	mov eax,SYS_write	;; write syscall
+	int 0x80
 
-	mov $errmsgnl,%ecx	;; newline
-	mov $1,%edx
-	mov $__NR_write,%eax	;; write syscall
-	int $0x80
+	mov ecx,errmsgnl	;; newline
+	mov edx, 1
+	mov eax,SYS_write	;; write syscall
+	int 0x80
 
 	NEXT
 
-	.section .rodata
-errmsg: .ascii "PARSE ERROR: "
+	section .rodata
+errmsg:  db "PARSE ERROR: "
 errmsgend:
-errmsgnl: .ascii "\n"
+errmsgnl: db `\n`
 
-	.data			;; NB: easier to fit in the .data section
-	.align 4
+	section .data			;; NB: easier to fit in the .data section
+	align 8
 interpret_is_lit:
-	.int 0			;; Flag used to record if reading a literal
+	dd 0			;; Flag used to record if reading a literal
 
 %if 0
 	ODDS AND ENDS ----------------------------------------------------------------------
@@ -2215,46 +2233,46 @@ interpret_is_lit:
 	part, you must put new words before SYSCALL0, or else change how LATEST is initialised.
 %endif
 
-	defcode "CHAR",4,,CHAR
+	defcode "CHAR",4,CHAR
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
-	xor %eax,%eax
-	movb (%edi),%al		;; Get the first character of the word.
-	push %eax		;; Push it onto the stack.
+	xor eax,eax
+	mov al,[edi]		;; Get the first character of the word.
+	push eax		;; Push it onto the stack.
 	NEXT
 
-	defcode "EXECUTE",7,,EXECUTE
-	pop %eax		;; Get xt into %eax
-	jmp *(%eax)		;; and jump to it.
+	defcode "EXECUTE",7,EXECUTE
+	pop eax		;; Get xt into %eax
+	jmp [eax]		;; and jump to it.
 				;; After xt runs its NEXT will continue executing the current word.
 
-	defcode "SYSCALL3",8,,SYSCALL3
-	pop %eax		;; System call number (see <asm/unistd.h>)
-	pop %ebx		;; First parameter.
-	pop %ecx		;; Second parameter
-	pop %edx		;; Third parameter
-	int $0x80
-	push %eax		;; Result (negative for -errno)
+	defcode "SYSCALL3",8,SYSCALL3
+	pop eax		;; System call number (see <asm/unistd.h>)
+	pop ebx		;; First parameter.
+	pop ecx		;; Second parameter
+	pop edx		;; Third parameter
+	int 0x80
+	push eax		;; Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL2",8,,SYSCALL2
-	pop %eax		;; System call number (see <asm/unistd.h>)
-	pop %ebx		;; First parameter.
-	pop %ecx		;; Second parameter
-	int $0x80
-	push %eax		;; Result (negative for -errno)
+	defcode "SYSCALL2",8,SYSCALL2
+	pop eax		;; System call number (see <asm/unistd.h>)
+	pop ebx		;; First parameter.
+	pop ecx		;; Second parameter
+	int 0x80
+	push eax		;; Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL1",8,,SYSCALL1
-	pop %eax		;; System call number (see <asm/unistd.h>)
-	pop %ebx		;; First parameter.
-	int $0x80
-	push %eax		;; Result (negative for -errno)
+	defcode "SYSCALL1",8,SYSCALL1
+	pop eax		;; System call number (see <asm/unistd.h>)
+	pop ebx		;; First parameter.
+	int 0x80
+	push eax		;; Result (negative for -errno)
 	NEXT
 
-	defcode "SYSCALL0",8,,SYSCALL0
-	pop %eax		;; System call number (see <asm/unistd.h>)
-	int $0x80
-	push %eax		;; Result (negative for -errno)
+	defcode "SYSCALL0",8,SYSCALL0
+	pop eax		;; System call number (see <asm/unistd.h>)
+	int 0x80
+	push eax		;; Result (negative for -errno)
 	NEXT
 
 %if 0
@@ -2281,37 +2299,35 @@ interpret_is_lit:
 
 	You don't need to worry about this code.
 %endif
-	.text
-	.set INITIAL_DATA_SEGMENT_SIZE,65536
+	section .text
+	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
-	xor %ebx,%ebx		;; Call brk(0)
-	movl $__NR_brk,%eax
-	int $0x80
-	movl %eax,var_HERE	;; Initialise HERE to point at beginning of data segment.
-	addl $INITIAL_DATA_SEGMENT_SIZE,%eax	;; Reserve nn bytes of memory for initial data segment.
-	movl %eax,%ebx		;; Call brk(HERE+INITIAL_DATA_SEGMENT_SIZE)
-	movl $__NR_brk,%eax
-	int $0x80
+	xor ebx,ebx		;; Call brk(0)
+	mov eax,SYS_break
+	int 0x80
+	mov [var_HERE],eax	;; Initialise HERE to point at beginning of data segment.
+	add eax,INITIAL_DATA_SEGMENT_SIZE	;; Reserve nn bytes of memory for initial data segment.
+	mov ebx,eax		;; Call brk(HERE+INITIAL_DATA_SEGMENT_SIZE)
+	mov eax,SYS_break
+	int 0x80
 	ret
 
 %if 0
 	We allocate static buffers for the return static and input buffer (used when
 	reading in files and text that the user types in).
 %endif
-	.set RETURN_STACK_SIZE,8192
-	.set BUFFER_SIZE,4096
+	%define RETURN_STACK_SIZE 8192
 
-	.bss
+	section .bss
 ;; FORTH return stack.
-	.align 4096
-return_stack:
-	.space RETURN_STACK_SIZE
+	align 4096
+return_stack: resb RETURN_STACK_SIZE 
 return_stack_top:		;; Initial top of return stack.
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
-	.align 4096
+	align 4096
 buffer:
-	.space BUFFER_SIZE
+	resb BUFFER_SIZE
 
 %if 0
 	START OF FORTH CODE ----------------------------------------------------------------------
