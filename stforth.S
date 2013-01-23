@@ -1,3 +1,4 @@
+#/usr/games/fortune
 ;; asmsyntax=nasm
 
 %if 0
@@ -672,7 +673,7 @@ name_%3 :
 	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
-	db %1		;; the name
+        section .text
 	align RWIDTH	;; padding to next 4 byte boundary
 	global %3
 %3 :
