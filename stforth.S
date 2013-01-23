@@ -13,6 +13,9 @@
 
 %define JONES_VERSION 47
 %define STF_VERSION   1
+;; since this will one day be 64 bit
+;; when it's 64 bit, this will be 8
+%define RWIDTH 4
 %if 0
 +comment
 	INTRODUCTION ----------------------------------------------------------------------
@@ -313,9 +316,9 @@
 
 ;; NEXT macro.
 %macro NEXT 0
-	;;lodsd
-	mov eax, [esi]
-	add esi, 4
+	lodsd
+	;;mov eax, [esi]
+	;;add esi, 4
 	jmp [eax]
 %endmacro
 
@@ -489,14 +492,14 @@
 	;;%macro PUSHRSP reg
 	;; push reg on to return stack	
 %macro PUSHRSP 1
-	lea ebp,[ebp-4] 
+	lea ebp,[ebp - RWIDTH] 
 	mov [ebp], %1
 %endmacro
 
 	;;.macro POPRSP reg
 %macro POPRSP 1	
 	mov %1,[ebp]    	;; pop top of return stack to reg
-	lea ebp, [ebp + 4]
+	lea ebp, [ebp + RWIDTH]
 %endmacro
 
 %if 0
@@ -517,11 +520,11 @@
 
 ;; DOCOL - the interpreter! */
 	section .text
-	align 4
+	align RWIDTH
 	
 DOCOL:
 	PUSHRSP esi		;; push %esi on to the return stack
-	add eax,4		;; %eax points to codeword, so make
+	add eax,RWIDTH		;; %eax points to codeword, so make
 	mov esi,eax		;; %esi point to first data word
 	NEXT
 
@@ -592,7 +595,7 @@ _start:
 	mov ebp, return_stack_top ;; Initialise the return stack.
 	call set_up_data_segment
 
-	mov esi,[cold_start]	;; Initialise interpreter.
+	mov esi,cold_start	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
 ;***  Code moved ***
@@ -663,14 +666,14 @@ DOUBLE: .int DOCOL		// codeword
 	;; wow, redefining a macro in a macro. very cool.
 %macro defword 3-4 0
 	section .rodata
-	align 4
+	align RWIDTH
 	global name_%3
 name_%3 :
 	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
-	align 4		;; padding to next 4 byte boundary
+	align RWIDTH	;; padding to next 4 byte boundary
 	global %3
 %3 :
 	dd DOCOL		;; codeword - the interpreter
@@ -708,14 +711,14 @@ name_%3 :
 	;; flags %4
 %macro  defcode 3-4 0
 	section .rodata
-	align 4
+	align RWIDTH
 	global name_%3
 name_%3 :
 	dd link		;; link
 	%define link name_%3
 	db %4+%2	;; flags + length byte
 	db %1		;; the name
-	align 4		;; padding to next 4 byte boundary
+	align RWIDTH		;; padding to next 4 byte boundary
 	global %3
 %3 :
 	dd code_%3	;; codeword
@@ -750,7 +753,7 @@ code_%3 :			;; assembler code follows
 	NEXT
 
 	defcode "OVER",4,OVER
-	mov  eax, [esp + 4]	;; get the second element of stack
+	mov  eax, [esp + RWIDTH]	;; get the second element of stack
 	push eax		;; and push it on top
 	NEXT
 
@@ -779,7 +782,7 @@ code_%3 :			;; assembler code follows
 
 	defcode "2DUP",4,TWODUP ;; duplicate top two elements of stack
 	mov  eax, [esp]
-	mov  ebx, [esp + 4]
+	mov  ebx, [esp + RWIDTH]
 	push ebx
 	push eax
 	NEXT
@@ -1125,12 +1128,12 @@ qdup_jump:
 
 ;; C@C! is a useful byte copy primitive.
 	defcode "C@C!",4,CCOPY
-	mov ebx,[esp + 4]	;; source address
+	mov ebx,[esp + RWIDTH]	;; source address
 	mov al,[ebx]		;; get source character
 	pop  edi		;; destination address
 	stosb			;; copy to destination
 	push edi		;; increment destination address
-	inc dword [esp + 4]	;; increment source address
+	inc dword [esp + RWIDTH]	;; increment source address
 	NEXT
 
 ;; and CMOVE is a block copy operation.
@@ -1171,7 +1174,7 @@ qdup_jump:
 	push var_%3
 	NEXT
 	section .data
-	align 4
+	align RWIDTH
 var_%3 :
 	dd %5
 %endmacro
@@ -1217,7 +1220,8 @@ var_%3 :
 ;;#include <asm-i386/unistd.h>	;; you might need this instead
 ;;#include <asm/unistd.h>
 ;;#include <sys/syscall.h>
-%include "syscall.S"
+;;%include "syscall.S"
+%include "nasm-sys32.inc"
 
 	;;.macro defconst name, namelen, flags=0, label, value
         ;; name %1
@@ -1283,7 +1287,7 @@ var_%3 :
 	NEXT
 
 	defcode "RDROP",5,RDROP
-	add ebp,4		;; pop return stack and throw away
+	add ebp,RWIDTH		;; pop return stack and throw away
 	NEXT
 
 %if 0
@@ -1364,8 +1368,7 @@ exh:	;; Out of input; use read(2) to fetch more input from stdin.
 	mov ecx, buffer 	;; 2nd param: buffer
 	mov [currkey], ecx
 	mov edx, BUFFER_SIZE	;; 3rd param: max length
-	mov eax, SYS_read	;; syscall: read
-	int 0x80
+	sys.read	        ;; syscall: read
 	test eax,eax		;; If %eax <= 0, then exit.
 	jbe eout
 	add ecx,eax		;; buffer+%eax = bufftop
@@ -1374,11 +1377,10 @@ exh:	;; Out of input; use read(2) to fetch more input from stdin.
 
 eout:	;; Error or end of input: exit the program.
 	xor ebx,ebx
-	mov eax,SYS_exit	;; syscall: exit
-	int 0x80
+        sys.exit	        ;; syscall: exit
 
 	section .data
-	align 4
+	align RWIDTH
 currkey:
         dd 0			;; Current place in input buffer (next character to read).
 bufftop:
@@ -1405,8 +1407,7 @@ _EMIT:
 
 	mov edx,1		;; 3rd param: nbytes = 1
 
-	mov eax,SYS_write	;; write syscall
-	int 0x80
+        sys.write       	;; write syscall
 	ret
 
 	section .data			;; NB: easier to fit in the .data section
@@ -1608,7 +1609,7 @@ fi1:	test edx,edx		;; NULL pointer?  (end of the linked list)
 	;; Note that if the F_HIDDEN flag is set on the word, then by a bit of trickery
 	;; this won't pick the word (the length will appear to be wrong).
 	xor eax,eax
-	mov al,[edx+4]	        ;; %al = flags+length field
+	mov al,[edx+RWIDTH]	        ;; %al = flags+length field
 	and al,F_HIDDEN|F_LENMASK ;; %al = name length
 	cmp cl,al		;; Length is the same?
 	jne fi2
@@ -1675,13 +1676,13 @@ fi4:	;; Not found.
 	NEXT
 _TCFA:
 	xor eax,eax
-	add edi,4		;; Skip link pointer.
+	add edi,RWIDTH		;; Skip link pointer.
 	mov al,[edi]		;; Load flags+len into %al.
 	inc edi	        	;; Skip flags+len byte.
 	and al,F_LENMASK	;; Just the length, not the flags.
 	add edi,eax		;; Skip the name.
-	add edi,3		;; The codeword is 4-byte aligned.
-	and edi,~3
+	add edi,(RWIDTH -1)	;; The codeword is 4-byte aligned.
+	and edi,~(RWIDTH -1)
 	ret
 
 %if 0
@@ -1882,8 +1883,8 @@ _TCFA:
 	mov esi,ebx		;; %esi = word
 	rep movsb		;; Copy the word
 	pop esi
-	add edi,3		;; Align to next 4 byte boundary.
-	and edi,~3
+	add edi,(RWIDTH-1)	;; Align to next 4 byte boundary.
+	and edi,~(RWIDTH-1)
 
 	;; Update LATEST and HERE.
 	mov eax,var_HERE
@@ -2011,7 +2012,7 @@ _COMMA:
 
 	defcode "IMMEDIATE",9,IMMEDIATE,F_IMMED
 	mov edi,var_LATEST	;; LATEST word.
-	add edi,4		;; Point to name/flags byte.
+	add edi,RWIDTH		;; Point to name/flags byte.
 	xor [edi],byte F_IMMED	;; Toggle the IMMED bit.
 	NEXT
 
@@ -2041,7 +2042,7 @@ _COMMA:
 
 	defcode "HIDDEN",6,HIDDEN
 	pop edi		;; Dictionary entry.
-	add edi,4		;; Point to name/flags byte.
+	add edi,RWIDTH		;; Point to name/flags byte.
 	xor [edi],byte F_HIDDEN	;; Toggle the HIDDEN bit.
 	NEXT
 
@@ -2157,16 +2158,15 @@ _COMMA:
 	push esi		;; push the address of the start of the string
 	push eax		;; push it on the stack
 	add esi,eax		;; skip past the string
- 	add esi,3		;; but round up to next 4 byte boundary
-	and esi,~3
+ 	add esi,(RWIDTH-1)	;; but round up to next 4 byte boundary
+	and esi,~(RWIDTH-1)
 	NEXT
 
 	defcode "TELL",4,TELL
 	mov ebx,1		;; 1st param: stdout
 	pop edx		;; 3rd param: length of string
 	pop ecx		;; 2nd param: address of string
-	mov eax,SYS_write	;; write syscall
-	int 0x80
+        sys.write       ;; write syscall
 	NEXT
 
 %if 0
@@ -2188,7 +2188,7 @@ _COMMA:
 	defword "QUIT",5,QUIT
 	dd RZ,RSPSTORE	        ;; R0 RSP!, clear the return stack
 	dd INTERPRET		;; interpret the next word
-	dd BRANCH,-8		;; and loop (indefinitely)
+	dd BRANCH,-(RWIDTH*2)		;; and loop (indefinitely)
 
 ;;	section .rodata
 	section .text
@@ -2210,7 +2210,7 @@ cold_start:			;; High-level code without a codeword.
 
 	;; In the dictionary.  Is it an IMMEDIATE codeword?
 	mov edi,eax		;; %edi = dictionary entry
-	mov al,[edi+4]	;; Get name+flags.
+	mov al,[edi+RWIDTH]	;; Get name+flags.
 	push ax		;; Just save it for now.
 	call _TCFA		;; Convert dictionary entry (in %edi) to codeword pointer.
 	pop ax
@@ -2260,8 +2260,7 @@ inx6:	;; Parse error (not a known word or a number in the current BASE).
 	mov ebx,2		;; 1st param: stderr
 	mov ecx,errmsg	;; 2nd param: error message
 	mov edx,errmsgend-errmsg ;; 3rd param: length of string
-	mov eax,SYS_write	;; write syscall
-	int 0x80
+        sys.write
 
 	mov ecx,[currkey]	;; the error occurred just before currkey position
 	mov edx,ecx
@@ -2270,13 +2269,11 @@ inx6:	;; Parse error (not a known word or a number in the current BASE).
 	jle inx7
 	mov edx,40
 inx7:	sub ecx,edx		;; %ecx = start of area to print, %edx = length
-	mov eax,SYS_write	;; write syscall
-	int 0x80
+        sys.write
 
 	mov ecx,errmsgnl	;; newline
 	mov edx, 1
-	mov eax,SYS_write	;; write syscall
-	int 0x80
+        sys.write
 
 	NEXT
 
@@ -2286,7 +2283,7 @@ errmsgend:
 errmsgnl: db `\n`
 
 	section .data			;; NB: easier to fit in the .data section
-	align 4
+	align RWIDTH
 interpret_is_lit:
 	dd 0			;; Flag used to record if reading a literal
 
@@ -2378,9 +2375,35 @@ interpret_is_lit:
 	You don't need to worry about this code.
 -comment
 %endif
+;; cribbed from mman.h
+%define PROT_NONE       0x00    ;; no permissions
+%define PROT_READ       0x01    ;; pages can be read
+%define PROT_WRITE      0x02    ;; pages can be written
+%define PROT_EXEC       0x04    ;; pages can be executed
+%define PROT_ALL        PROT_READ | PROT_WRITE | PROT_EXEC
+%define MAP_ANON        0x1000  ;; allocated from memory, swap space
+
 	section .text
 	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
+        push dword 0                ;;offset
+        push dword -1               ;;fd
+        push dword MAP_ANON         ;; flags -> MAP_ANON
+        push dword PROT_ALL         ;; prot -> PROT_READ | PROT_WRITE | PROT_EXEC
+        push dword INITIAL_DATA_SEGMENT_SIZE ;;len
+        push dword 0 ;; addr
+        sys.mmap
+        jc suds_err
+        mov [var_HERE], eax
+        add esp, 6 * RWIDTH
+        ret
+suds_err:
+        push eax
+        sys.exit
+        ;; BYE!
+%if 0
++comment
+        This is too strange to get working on freebsd. using mmap
 	xor ebx,ebx		;; Call brk(0)
         push ebx
         push ebx
@@ -2396,6 +2419,8 @@ set_up_data_segment:
 	int 0x80
         pop ebx
 	ret
+-comment
+%endif
 
 	;; We allocate static buffers for the return static and input buffer (used when
 	;; reading in files and text that the user types in).
@@ -2405,10 +2430,8 @@ set_up_data_segment:
 	section .bss
 ;; FORTH return stack.
 	align 4096
-zz_stack_1: resb RETURN_STACK_SIZE
 return_stack: resb RETURN_STACK_SIZE 
 return_stack_top:		;; Initial top of return stack.
-zz_stack_2: resb RETURN_STACK_SIZE
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
 	align 4096

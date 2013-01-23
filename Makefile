@@ -8,18 +8,20 @@ CC      = /Developer/usr/bin/gcc -I/Developer/SDKs/MacOSX10.7.sdk/usr/include
 
 all:	stforth
 
-stforth: stforth.S
+stforth: stforth.S nasm-sys32.inc
 	nasm -g -f elf32 stforth.S -o stforth.o
-	nasm -e -g -f elf32 stforth.S -o stforth.pp
-	ld -M -m elf_i386_fbsd stforth.o -o stforth > stforth.map
-	objdump -x -d stforth > stforth.dis
-	nm stforth > stforth.syms
+	ld -Ttext 0 -M -m elf_i386_fbsd stforth.o -o stforth > diag/stforth.map
+
+diag: stforth.S
+	nasm -e -g -f elf32 stforth.S -o diag/stforth.pp
+	objdump -x -d stforth > diag/stforth.dis
+	nm stforth > diag/stforth.syms
 
 run:
-	cat jonesforth.f $(PROG) - | ./jonesforth
+	cat stforth.f $(PROG) - | ./stforth
 
 clean:
-	rm -f stforth stforth.o stforth.core stforth.pp stforth.dis perf_dupdrop *~ *.core .test_*
+	rm -f stforth stforth.o stforth.core diag/* perf_dupdrop *~ .test_*
 
 # Tests.
 
