@@ -10,7 +10,10 @@ all:	stforth
 
 stforth: stforth.S nasm-sys32.inc
 	nasm -g -f elf32 stforth.S -o stforth.o
-	ld -Ttext 0x1000 -M -m elf_i386_fbsd stforth.o -o stforth > diag/stforth.map
+	ld -N -Ttext 0x1000 -M -m elf_i386_fbsd stforth.o -o stforth > diag/stforth.map
+
+nasm-sys32.inc:
+	support/alltosys32.py > nasm-sys32.inc
 
 diag:
 	nasm -e -g -f elf32 stforth.S -o diag/stforth.pp
@@ -49,9 +52,3 @@ run_perf_dupdrop: jonesforth
 
 .SUFFIXES: .f .test
 .PHONY: test check run run_perf_dupdrop diag
-
-remote:
-	scp jonesforth.S jonesforth.f rjones@oirase:Desktop/
-	ssh rjones@oirase sh -c '"rm -f Desktop/jonesforth; \
-	  gcc -m32 -nostdlib -static -Wl,-Ttext,0 -o Desktop/jonesforth Desktop/jonesforth.S; \
-	  cat Desktop/jonesforth.f - | Desktop/jonesforth arg1 arg2 arg3"'

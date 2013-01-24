@@ -1,4 +1,3 @@
-#/usr/games/fortune
 ;; asmsyntax=nasm
 
 %if 0
@@ -596,7 +595,7 @@ _start:
 	mov ebp, return_stack_top ;; Initialise the return stack.
 	call set_up_data_segment
 
-	mov esi,cold_start	;; Initialise interpreter.
+	mov esi,[cold_start]	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
 ;***  Code moved ***
@@ -666,7 +665,8 @@ DOUBLE: .int DOCOL		// codeword
 	;; flags = %4
 	;; wow, redefining a macro in a macro. very cool.
 %macro defword 3-4 0
-	section .rodata
+	;;section .rodata
+	section .text
 	align RWIDTH
 	global name_%3
 name_%3 :
@@ -711,7 +711,7 @@ name_%3 :
 	;; label %3
 	;; flags %4
 %macro  defcode 3-4 0
-	section .rodata
+	section .text
 	align RWIDTH
 	global name_%3
 name_%3 :
@@ -723,7 +723,7 @@ name_%3 :
 	global %3
 %3 :
 	dd code_%3	;; codeword
-	section .text
+	;;section .text
 	;;.align 4
 	global code_%3
 code_%3 :			;; assembler code follows
@@ -1172,7 +1172,7 @@ qdup_jump:
         ;; initial %5
 %macro defvar 3-5 0,0
 	defcode %1,%2,%3,%4
-	push var_%3
+	push dword var_%3
 	NEXT
 	section .data
 	align RWIDTH
@@ -2428,16 +2428,15 @@ suds_err:
 
 	%define RETURN_STACK_SIZE 8192
 
-	section .bss
+        ;;section bss
+	section .text
 ;; FORTH return stack.
 	align 4096
-return_stack: resb RETURN_STACK_SIZE 
-return_stack_top:		;; Initial top of return stack.
+return_stack: times RETURN_STACK_SIZE db 0
+return_stack_top: times 8 db 0		;; Initial top of return stack.
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
-	align 4096
-buffer:
-	resb BUFFER_SIZE
+buffer times BUFFER_SIZE db 0
 
 %if 0
 +comment
