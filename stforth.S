@@ -2396,7 +2396,7 @@ set_up_data_segment:
         sys.mmap
         jc suds_err
         mov [var_HERE], eax
-        add esp, 6 * RWIDTH
+        add esp, 7 * RWIDTH
         ret
 suds_err:
         push eax
@@ -2426,7 +2426,8 @@ suds_err:
 	;; We allocate static buffers for the return static and input buffer (used when
 	;; reading in files and text that the user types in).
 
-	%define RETURN_STACK_SIZE 8192
+	;;%define RETURN_STACK_SIZE 8192
+	%define RETURN_STACK_SIZE 10 * RWIDTH
 
         ;;section bss
 	section .text
