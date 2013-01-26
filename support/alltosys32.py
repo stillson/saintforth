@@ -24,12 +24,12 @@ for line in calls:
         spacer = " " * (35 - len(name))
         print("%%define SYS_%s%s%s" % (name,spacer,num))
 
-# add the (fake?) element on stack
 print( """
 %macro  system_call  1
-    push dword 0
     mov eax, %1
+    push dword 0
     int 0x80
+    add esp, 4
 %endmacro
 """)
 

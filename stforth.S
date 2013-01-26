@@ -19,15 +19,48 @@
 ;; when it's 64 bit, this will be 8
 %define RWIDTH 4
 
-%macro DEBUGCALL 1
-    pusha
-    push 0
-    push %1
+;; getting a little crazy with macros
+%macro unstack 1
+    add esp, %1
+%endmacro
+
+%macro unstd 1
+    unstack %1 * 4
+%endmacro
+
+;; if you use truss, you can see what's happening
+;; yes, it's an icky hack...
+%macro DEBUGCALLX 1
+    pushad           ;; register paranoia
+    push dword %1
     sys.setuid
-    pop eax
-    pop eax
-    pop eax
-    popa
+    unstd 1
+    popad
+%endmacro
+
+global DB_BUF
+%macro DEBUGCALL 1
+    pushad           ;; register paranoia
+    push 3
+    push dword DB_BUF + %1 * 3
+    push stderr
+    sys.write
+    unstd 3
+    popad
+%endmacro
+
+global DB_PRINT
+%macro DPRINT 0
+    mov byte [DB_PRINT + 0], '-'
+    mov byte [DB_PRINT + 1], al
+    mov byte [DB_PRINT + 2], 0xa
+    pushad
+    push 2
+    push DB_PRINT
+    push stderr
+    sys.write
+    unstd 3
+    popad
 %endmacro
 
 
@@ -331,13 +364,11 @@
 
 ;; NEXT macro.
 %macro NEXT 0
-        ;;DEBUGCALL esi
 	lodsd
 	;;mov eax, [esi]
 	;;add esi, 4
-        DEBUGCALL 1
-	;;jmp [eax]
-	jmp eax
+	jmp [eax]
+	;;jmp eax
 %endmacro
 
 %if 0
@@ -542,10 +573,8 @@
 	
 DOCOL:
 	PUSHRSP esi		;; push %esi on to the return stack
-        DEBUGCALL 2
 	add eax,RWIDTH		;; %eax points to codeword, so make
 	mov esi,eax		;; %esi point to first data word
-        DEBUGCALL 3 
 	NEXT
 
 %if 0
@@ -613,8 +642,10 @@ _start:
 	cld
 	mov [var_SZ],esp          ;; Save the initial data stack pointer in FORTH variable S0.
 	mov ebp, return_stack_top ;; Initialise the return stack.
+        pusha
 	call set_up_data_segment
-	mov esi,[cold_start]	;; Initialise interpreter.
+        popa
+	mov esi,cold_start	;; Initialise interpreter.
 	NEXT			;; Run interpreter!
 
 ;***  Code moved ***
@@ -1032,7 +1063,7 @@ qdup_jump:
 %endif
 
 	defcode "EXIT",4,EXITX
-        DEBUGCALL 10
+        DEBUGCALL 30
 	POPRSP esi		;; pop return stack into %esi
 	NEXT
 
@@ -1299,7 +1330,6 @@ var_%3 :
 	NEXT
 
 	defcode "RSP!",4,RSPSTORE
-        DEBUGCALL 17
 	pop ebp
 	NEXT
 
@@ -1368,40 +1398,51 @@ var_%3 :
 
 	defcode "KEY",3,KEY
 	call _KEY
+        DEBUGCALL 1 
 	push eax		;; push return value on stack
 	NEXT
 _KEY:
+        DEBUGCALL 2
 	mov ebx,[currkey]
 	cmp ebx,[bufftop]
 	jge exh			;; exhausted the input buffer?
+        DEBUGCALL 3 
 	xor eax,eax
+	mov ebx,currkey
 	mov al, [ebx]		;; get next key from input buffer
 	inc ebx
 	mov [currkey],ebx	;; increment currkey
 	ret
 
 exh:	;; Out of input; use read(2) to fetch more input from stdin.
-	xor ebx,ebx		;; 1st param: stdin
-	mov ecx, buffer 	;; 2nd param: buffer
-	mov [currkey], ecx
-	mov edx, BUFFER_SIZE	;; 3rd param: max length
+	;;xor ebx,ebx		;; 1st param: stdin
+	;;mov ecx, buffer 	;; 2nd param: buffer
+	;;mov [currkey], ecx
+	;;mov edx, BUFFER_SIZE	;; 3rd param: max length
+        mov ecx, [currkey]
+        push dword BUFFER_SIZE
+        ;push dword 1
+        push dword buffer
+        push dword stdin
 	sys.read	        ;; syscall: read
-	test eax,eax		;; If %eax <= 0, then exit.
-	jbe eout
+        unstd 3
+        DEBUGCALL 4 
+        jc eout
+	;;test eax,eax		;; If %eax <= 0, then exit.
+	;;jbe eout
+	mov ecx, buffer 	;; buffer
 	add ecx,eax		;; buffer+%eax = bufftop
 	mov [bufftop],ecx
+        DEBUGCALL 5
 	jmp _KEY
 
 eout:	;; Error or end of input: exit the program.
-	xor ebx,ebx
+	;;xor ebx,ebx
+        push 2
         sys.exit	        ;; syscall: exit
 
 	section .data
 	align RWIDTH
-currkey:
-        dd 0			;; Current place in input buffer (next character to read).
-bufftop:
-        dd 0			;; Last valid data in input buffer + 1.
 
 %if 0
 +comment
@@ -1416,15 +1457,17 @@ bufftop:
 	call _EMIT
 	NEXT
 _EMIT:
-	mov ebx,1		;; 1st param: stdout
 
 	;; write needs the address of the byte to write
 	mov [emit_scratch],al
-	mov ecx, emit_scratch	;; 2nd param: address
-
-	mov edx,1		;; 3rd param: nbytes = 1
-
+	;mov edx,1		;; 3rd param: nbytes = 1
+	;mov ecx, emit_scratch	;; 2nd param: address
+	;mov ebx,1		;; 1st param: stdout
+        push dword stdout
+        push dword emit_scratch
+        push dword 1
         sys.write       	;; write syscall
+        unstd 3
 	ret
 
 	section .data			;; NB: easier to fit in the .data section
@@ -1470,24 +1513,32 @@ emit_scratch:   db 0,0 ;; scratch used by EMIT
 _WORD:
 	;; Search for first non-blank character.  Also skip \ comments.
 beg:
+        DEBUGCALL 10 
 	call _KEY		;; get next key, returned in %eax
+        DPRINT
 	cmp al,'\'		;; start of a comment?
 	je w3			;; if so, skip the comment
 	cmp al,' '
 	jbe beg			;; if so, keep looking
 
+        DEBUGCALL 11 
 	;; Search for the end of the word, storing chars as we go.
 	mov edi,word_buffer	;; pointer to return buffer
 w2:
+        DEBUGCALL 12 
 	stosb			;; add character to return buffer
 	call _KEY		;; get next key, returned in %al
+        DEBUGCALL 13 
+        DPRINT
 	cmp al,' '		;; is blank?
 	ja w2			;; if not, keep looping
 
+        DEBUGCALL 14
 	;; Return the word (well, the static buffer) and length.
 	sub edi,word_buffer
 	mov ecx,edi		;; return length of the word
 	mov edi,word_buffer	;; return address of the word
+        DEBUGCALL 14 
 	ret
 
 	;; Code to skip \ comments to end of the current line.
@@ -1497,7 +1548,7 @@ w3:
 	jne w3
 	jmp beg
 
-	section .data		;; NB: easier to fit in the .data section
+	;;section .data		;; NB: easier to fit in the .data section
 	;; A static buffer where WORD returns.  Subsequent calls
 	;; overwrite this buffer.  Maximum word length is 32 chars.
 word_buffer: times 32 dd 0
@@ -2211,6 +2262,8 @@ _COMMA:
 	section .text
 cold_start:			;; High-level code without a codeword.
 	dd QUIT
+h_cold_start:
+        dd cold_start
 
 	;; This interpreter is pretty simple, but remember that in FORTH you can always override
 	;; it later with a more powerful one!
@@ -2404,7 +2457,6 @@ interpret_is_lit:
 	section .text
 	%define INITIAL_DATA_SEGMENT_SIZE 65536
 set_up_data_segment:
-        push dword 0                ;;???
         push dword 0                ;;offset?
         push dword -1               ;;fd
         push dword MAP_ANON         ;; flags -> MAP_ANON
@@ -2413,8 +2465,8 @@ set_up_data_segment:
         push dword 0 ;; addr
         sys.mmap
         jc suds_err
+        unstd 6
         mov [var_HERE], eax
-        add esp, 8 * RWIDTH
         ret
 suds_err:
         push eax
@@ -2444,8 +2496,7 @@ suds_err:
 	;; We allocate static buffers for the return static and input buffer (used when
 	;; reading in files and text that the user types in).
 
-	;;%define RETURN_STACK_SIZE 8192
-	%define RETURN_STACK_SIZE 10 * RWIDTH
+	%define RETURN_STACK_SIZE 8192
 
         ;;section bss
 	section .text
@@ -2455,8 +2506,48 @@ return_stack: times RETURN_STACK_SIZE db 0
 return_stack_top: times 8 db 0		;; Initial top of return stack.
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
-buffer times BUFFER_SIZE db 0
+buffer:
+    times BUFFER_SIZE db 0
+buffend:
+currkey: dd buffer           ;; Current place in input buffer (next character to read).
+bufftop: dd buffer;; Last valid data in input buffer + 1.
 
+section .rodota
+DB_BUF:
+    db ">x",0x0a ;0
+    db ">1",0x0a ;1
+    db ">2",0x0a ;2
+    db ">3",0x0a ;3
+    db ">4",0x0a ;4
+    db ">5",0x0a ;5
+    db ">6",0x0a ;6
+    db ">7",0x0a ;7
+    db ">8",0x0a ;8
+    db ">9",0x0a ;9
+    db ">a",0x0a ;10
+    db ">b",0x0a ;11
+    db ">c",0x0a ;12
+    db ">d",0x0a ;13
+    db ">e",0x0a ;14
+    db ">f",0x0a ;15
+    db ">g",0x0a ;16
+    db ">h",0x0a ;17
+    db ">i",0x0a ;18
+    db ">j",0x0a ;19
+    db ">k",0x0a ;20
+    db ">l",0x0a ;21
+    db ">m",0x0a ;22
+    db ">n",0x0a ;23
+    db ">s",0x0a ;24
+    db ">t",0x0a ;25
+    db ">u",0x0a ;26
+    db ">v",0x0a ;27
+    db ">w",0x0a ;29
+    db ">x",0x0a ;30
+    db ">y",0x0a ;31
+    db ">z",0x0a ;32
+DB_PRINT:
+    times 32 db 0
 %if 0
 +comment
 	START OF FORTH CODE ----------------------------------------------------------------------
