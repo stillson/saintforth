@@ -49,17 +49,109 @@ global DB_BUF
     popad
 %endmacro
 
+%macro CRASH 0
+    mov [0], dword 0
+%endmacro
+
 global DB_PRINT
+
 %macro DPRINT 0
-    mov byte [DB_PRINT + 0], '-'
-    mov byte [DB_PRINT + 1], al
-    mov byte [DB_PRINT + 2], 0xa
     pushad
-    push 2
-    push DB_PRINT
-    push stderr
+    xor edx,edx
+    xor ecx,ecx
+    mov byte [DB_PRINT], '-'
+    ;;mov byte [DB_PRINT + 1], al
+    mov byte [DB_PRINT + 1], 'x'
+
+    mov cl, al
+    and cl, 0xf0
+    shl cl, 4
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 2], dl
+
+    mov cl, al
+    and cl, 0x0f
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 3], dl
+
+    mov byte [DB_PRINT + 4], 0xa
+    push dword 5
+    push dword DB_PRINT
+    push dword stderr
     sys.write
     unstd 3
+    popad
+%endmacro
+
+%macro DBHEX 1
+    pushad
+    push %1
+    xor eax,eax
+    xor ebx,ebx
+    xor ecx,ecx
+    xor edx,edx
+    pop eax
+    
+    mov byte [DB_PRINT + 0], '0'
+    mov byte [DB_PRINT + 1], 'x'
+
+    mov ecx, eax
+    shr ecx, 28
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 2], dl
+
+    mov ecx, eax
+    shr ecx, 24
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 3], dl
+
+    mov ecx, eax
+    shr ecx, 20
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 4], dl
+
+    mov ecx, eax
+    shr ecx, 16
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 5], dl
+    
+    mov ecx, eax
+    shr ecx, 12
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 6], dl
+
+    mov ecx, eax
+    shr ecx, 8
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 7], dl
+
+    mov ecx, eax
+    shr ecx, 4
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 8], dl
+
+    mov ecx, eax
+    ;shr ecx, 0
+    and ecx, 0xf
+    mov dl, [HEX_DATA + ecx]
+    mov byte [DB_PRINT + 9], dl
+
+    mov byte [DB_PRINT + 10], 0xa
+
+    push 11
+    push dword DB_PRINT
+    push stderr
+    sys.write
+    ;unstd 3
+
+    ;unstd 1
     popad
 %endmacro
 
@@ -1063,7 +1155,6 @@ qdup_jump:
 %endif
 
 	defcode "EXIT",4,EXITX
-        DEBUGCALL 30
 	POPRSP esi		;; pop return stack into %esi
 	NEXT
 
@@ -1398,18 +1489,15 @@ var_%3 :
 
 	defcode "KEY",3,KEY
 	call _KEY
-        DEBUGCALL 1 
 	push eax		;; push return value on stack
 	NEXT
 _KEY:
-        DEBUGCALL 2
 	mov ebx,[currkey]
 	cmp ebx,[bufftop]
 	jge exh			;; exhausted the input buffer?
-        DEBUGCALL 3 
 	xor eax,eax
-	mov ebx,currkey
-	mov al, [ebx]		;; get next key from input buffer
+	mov dword ebx,[currkey]
+	mov byte al, [ebx]		;; get next key from input buffer
 	inc ebx
 	mov [currkey],ebx	;; increment currkey
 	ret
@@ -1419,21 +1507,21 @@ exh:	;; Out of input; use read(2) to fetch more input from stdin.
 	;;mov ecx, buffer 	;; 2nd param: buffer
 	;;mov [currkey], ecx
 	;;mov edx, BUFFER_SIZE	;; 3rd param: max length
-        mov ecx, [currkey]
+        ;;mov ecx, [currkey]
+        ;push dword BUFFER_SIZE
         push dword BUFFER_SIZE
-        ;push dword 1
         push dword buffer
         push dword stdin
 	sys.read	        ;; syscall: read
         unstd 3
-        DEBUGCALL 4 
+
         jc eout
+        jz eout
 	;;test eax,eax		;; If %eax <= 0, then exit.
 	;;jbe eout
 	mov ecx, buffer 	;; buffer
 	add ecx,eax		;; buffer+%eax = bufftop
 	mov [bufftop],ecx
-        DEBUGCALL 5
 	jmp _KEY
 
 eout:	;; Error or end of input: exit the program.
@@ -1513,37 +1601,35 @@ emit_scratch:   db 0,0 ;; scratch used by EMIT
 _WORD:
 	;; Search for first non-blank character.  Also skip \ comments.
 beg:
-        DEBUGCALL 10 
 	call _KEY		;; get next key, returned in %eax
-        DPRINT
+        DBHEX eax
 	cmp al,'\'		;; start of a comment?
 	je w3			;; if so, skip the comment
 	cmp al,' '
 	jbe beg			;; if so, keep looking
-
-        DEBUGCALL 11 
 	;; Search for the end of the word, storing chars as we go.
+        DEBUGCALL 1
 	mov edi,word_buffer	;; pointer to return buffer
 w2:
-        DEBUGCALL 12 
 	stosb			;; add character to return buffer
+        DEBUGCALL 2
 	call _KEY		;; get next key, returned in %al
-        DEBUGCALL 13 
-        DPRINT
+        DBHEX eax
 	cmp al,' '		;; is blank?
 	ja w2			;; if not, keep looping
 
-        DEBUGCALL 14
 	;; Return the word (well, the static buffer) and length.
 	sub edi,word_buffer
 	mov ecx,edi		;; return length of the word
 	mov edi,word_buffer	;; return address of the word
-        DEBUGCALL 14 
+        DEBUGCALL 3
 	ret
 
 	;; Code to skip \ comments to end of the current line.
 w3:
+        DEBUGCALL 4
 	call _KEY
+        DBHEX eax
 	cmp al,`\n`		;; end of line yet?
 	jne w3
 	jmp beg
@@ -2270,21 +2356,26 @@ h_cold_start:
 
 	defcode "INTERPRET",9,INTERPRET
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
+        DEBUGCALL 16
+        DBHEX ecx
+        DBHEX edi
 
-        DEBUGCALL 20
 	;; Is it in the dictionary?
 	xor eax,eax
 	mov [interpret_is_lit],eax ;; Not a literal number (not yet anyway ...)
+        DEBUGCALL 10
 	call _FIND		;; Returns %eax = pointer to header or 0 if not found.
 	test eax,eax		;; Found?
 	jz inx1
 
+        DEBUGCALL 11
 	;; In the dictionary.  Is it an IMMEDIATE codeword?
 	mov edi,eax		;; %edi = dictionary entry
 	mov al,[edi+RWIDTH]	;; Get name+flags.
 	push ax		;; Just save it for now.
 	call _TCFA		;; Convert dictionary entry (in %edi) to codeword pointer.
 	pop ax
+        DEBUGCALL 12
 	and al,F_IMMED	;; Is IMMED flag set?
 	mov eax,edi
 	jnz inx4			;; If IMMED, jump straight to executing.
@@ -2328,10 +2419,11 @@ inx5:	;; Executing a literal, which means push it on the stack.
 
 inx6:	;; Parse error (not a known word or a number in the current BASE).
 	;; Print an error message followed by up to 40 characters of context.
-	mov ebx,2		;; 1st param: stderr
-	mov ecx,errmsg	;; 2nd param: error message
-	mov edx,errmsgend-errmsg ;; 3rd param: length of string
+	push dword errmsgend-errmsg ;; 3rd param: length of string
+	push dword errmsg	;; 2nd param: error message
+	push dword 2		;; 1st param: stderr
         sys.write
+        unstd 3
 
 	mov ecx,[currkey]	;; the error occurred just before currkey position
 	mov edx,ecx
@@ -2506,11 +2598,14 @@ return_stack: times RETURN_STACK_SIZE db 0
 return_stack_top: times 8 db 0		;; Initial top of return stack.
 
 ;; This is used as a temporary input buffer when reading from files or the terminal.
-buffer:
-    times BUFFER_SIZE db 0
-buffend:
-currkey: dd buffer           ;; Current place in input buffer (next character to read).
+buffer times BUFFER_SIZE db 0
+buffend db 0
+
+currkey: dd buffer;; Current place in input buffer (next character to read).
 bufftop: dd buffer;; Last valid data in input buffer + 1.
+
+DB_PRINT:
+    times 32 db 0
 
 section .rodota
 DB_BUF:
@@ -2546,8 +2641,9 @@ DB_BUF:
     db ">x",0x0a ;30
     db ">y",0x0a ;31
     db ">z",0x0a ;32
-DB_PRINT:
-    times 32 db 0
+HEX_DATA:
+    db "0123456789abcdef"
+
 %if 0
 +comment
 	START OF FORTH CODE ----------------------------------------------------------------------
