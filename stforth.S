@@ -1526,7 +1526,7 @@ exh:	;; Out of input; use read(2) to fetch more input from stdin.
 
 eout:	;; Error or end of input: exit the program.
 	;;xor ebx,ebx
-        push 2
+        push dword 2
         sys.exit	        ;; syscall: exit
 
 	section .data
@@ -1556,6 +1556,7 @@ _EMIT:
         push dword 1
         sys.write       	;; write syscall
         unstd 3
+        ; needs an error check
 	ret
 
 	section .data			;; NB: easier to fit in the .data section
@@ -1602,19 +1603,21 @@ _WORD:
 	;; Search for first non-blank character.  Also skip \ comments.
 beg:
 	call _KEY		;; get next key, returned in %eax
-        DBHEX eax
+        ;DEBUGCALL 1
+        ;DBHEX eax
 	cmp al,'\'		;; start of a comment?
 	je w3			;; if so, skip the comment
+        ;DEBUGCALL 2
 	cmp al,' '
 	jbe beg			;; if so, keep looking
 	;; Search for the end of the word, storing chars as we go.
-        DEBUGCALL 1
+        ;DEBUGCALL 3
 	mov edi,word_buffer	;; pointer to return buffer
 w2:
 	stosb			;; add character to return buffer
-        DEBUGCALL 2
+        ;DEBUGCALL 4
 	call _KEY		;; get next key, returned in %al
-        DBHEX eax
+        ;DBHEX eax
 	cmp al,' '		;; is blank?
 	ja w2			;; if not, keep looping
 
@@ -1622,14 +1625,14 @@ w2:
 	sub edi,word_buffer
 	mov ecx,edi		;; return length of the word
 	mov edi,word_buffer	;; return address of the word
-        DEBUGCALL 3
+        ;DEBUGCALL 5
 	ret
 
 	;; Code to skip \ comments to end of the current line.
 w3:
-        DEBUGCALL 4
+        ;DEBUGCALL 6
 	call _KEY
-        DBHEX eax
+        ;DBHEX eax
 	cmp al,`\n`		;; end of line yet?
 	jne w3
 	jmp beg
@@ -2317,10 +2320,15 @@ _COMMA:
 	NEXT
 
 	defcode "TELL",4,TELL
-	mov ebx,1		;; 1st param: stdout
+	;mov ebx,1		;; 1st param: stdout
 	pop edx		;; 3rd param: length of string
 	pop ecx		;; 2nd param: address of string
+        push edx
+        push ecx
+        push dword stdout
         sys.write       ;; write syscall
+        unstd 3
+        ;; needs an error check
 	NEXT
 
 %if 0
@@ -2356,26 +2364,26 @@ h_cold_start:
 
 	defcode "INTERPRET",9,INTERPRET
 	call _WORD		;; Returns %ecx = length, %edi = pointer to word.
-        DEBUGCALL 16
-        DBHEX ecx
-        DBHEX edi
+        ;DEBUGCALL 16
+        ;DBHEX ecx
+        ;DBHEX edi
 
 	;; Is it in the dictionary?
 	xor eax,eax
 	mov [interpret_is_lit],eax ;; Not a literal number (not yet anyway ...)
-        DEBUGCALL 10
+        ;DEBUGCALL 10
 	call _FIND		;; Returns %eax = pointer to header or 0 if not found.
 	test eax,eax		;; Found?
 	jz inx1
 
-        DEBUGCALL 11
+        ;DEBUGCALL 11
 	;; In the dictionary.  Is it an IMMEDIATE codeword?
 	mov edi,eax		;; %edi = dictionary entry
 	mov al,[edi+RWIDTH]	;; Get name+flags.
 	push ax		;; Just save it for now.
 	call _TCFA		;; Convert dictionary entry (in %edi) to codeword pointer.
 	pop ax
-        DEBUGCALL 12
+        ;DEBUGCALL 12
 	and al,F_IMMED	;; Is IMMED flag set?
 	mov eax,edi
 	jnz inx4			;; If IMMED, jump straight to executing.
@@ -2432,11 +2440,19 @@ inx6:	;; Parse error (not a known word or a number in the current BASE).
 	jle inx7
 	mov edx,40
 inx7:	sub ecx,edx		;; %ecx = start of area to print, %edx = length
+        push edx
+        push ecx
+        push dword stdout
         sys.write
+        unstd 3
 
-	mov ecx,errmsgnl	;; newline
-	mov edx, 1
+	;mov ecx,errmsgnl	;; newline
+	;mov edx, 1
+        push dword 1
+        push dword errmsgnl
+        push dword stdout
         sys.write
+        unstd 3
 
 	NEXT
 
@@ -2484,33 +2500,61 @@ interpret_is_lit:
 
 	defcode "SYSCALL3",8,SYSCALL3
 	pop eax		;; System call number (see <asm/unistd.h>)
-	pop ebx		;; First parameter.
-	pop ecx		;; Second parameter
-	pop edx		;; Third parameter
+	;pop ebx		;; First parameter.
+	;pop ecx		;; Second parameter
+	;pop edx		;; Third parameter
+        push dword 0            ;; fake
 	int 0x80
+        unstd 4
+        jc s3err
 	push eax		;; Result (negative for -errno)
 	NEXT
+s3err:
+        neg eax
+        push eax
+        NEXT
 
 	defcode "SYSCALL2",8,SYSCALL2
 	pop eax		;; System call number (see <asm/unistd.h>)
-	pop ebx		;; First parameter.
-	pop ecx		;; Second parameter
+	;;pop ebx		;; First parameter.
+	;;pop ecx		;; Second parameter
+        push dword 0            ;; fake
 	int 0x80
+        unstd 3
+        jc s2err
 	push eax		;; Result (negative for -errno)
 	NEXT
+s2err:
+        neg eax
+        push eax
+        NEXT
 
 	defcode "SYSCALL1",8,SYSCALL1
 	pop eax		;; System call number (see <asm/unistd.h>)
-	pop ebx		;; First parameter.
+	;pop ebx		;; First parameter.
+        push dword 0
 	int 0x80
+        unstd 2
+        jc s1err
 	push eax		;; Result (negative for -errno)
 	NEXT
+s1err:
+        neg eax
+        push eax
+        NEXT
 
 	defcode "SYSCALL0",8,SYSCALL0
 	pop eax		;; System call number (see <asm/unistd.h>)
+        push dword 0
 	int 0x80
+        unstd 1
+        jc s0err
 	push eax		;; Result (negative for -errno)
 	NEXT
+s0err:
+        neg eax
+        push eax
+        NEXT
 
 %if 0
 +comment
